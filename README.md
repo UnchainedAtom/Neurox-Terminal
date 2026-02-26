@@ -1,6 +1,6 @@
 # Neurox Terminal
 
-A Flask API for controlling smart home devices through Home Assistant. Originally built for a Raspberry Pi with a terminal vibe—complete with the glowing retro aesthetic.
+A Flask API for controlling smart home devices through Home Assistant. Originally built for a Raspberry Pi with a retro terminal aesthetc.
 
 ## What it does
 
