@@ -13,7 +13,7 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# Install runtime dependencies (VLC for media playback)
+# Install runtime dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
     vlc \
     && rm -rf /var/lib/apt/lists/*
@@ -23,6 +23,8 @@ COPY --from=builder /root/.local /root/.local
 
 # Copy application code
 COPY app/ ./app/
+COPY templates/ ./templates/
+COPY static/ ./static/
 COPY neuronodeTerminal_api.py .
 COPY .env.example .
 
@@ -30,15 +32,15 @@ COPY .env.example .
 ENV PATH=/root/.local/bin:$PATH \
     PYTHONUNBUFFERED=1 \
     FLASK_HOST=0.0.0.0 \
-    FLASK_PORT=5000 \
+    FLASK_PORT=8000 \
     DEMO_MODE=True
 
 # Expose port
-EXPOSE 5000
+EXPOSE 8000
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD python -c "import requests; requests.get('http://localhost:5000/')" || exit 1
+    CMD python -c "import requests; requests.get('http://localhost:8000/')" || exit 1
 
 # Run application
 CMD ["python", "neuronodeTerminal_api.py"]

@@ -3,7 +3,7 @@ Routes module for Neurox Terminal API.
 Defines all HTTP endpoints for device control.
 """
 import logging
-from flask import Flask, jsonify
+from flask import Flask, jsonify, render_template
 from app.config import Config
 from app.controller import toggle_lights, play_media
 
@@ -14,7 +14,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-app = Flask(__name__)
+app = Flask(__name__, template_folder='../templates', static_folder='../static')
 
 # Validate configuration on startup
 try:
@@ -25,6 +25,12 @@ except ValueError as e:
 
 @app.route("/")
 def index():
+    """Serve the main dashboard UI."""
+    return render_template('dashboard.html')
+
+
+@app.route("/api/")
+def api_index():
     """Health check endpoint."""
     demo_mode = " (DEMO MODE)" if Config.DEMO_MODE else ""
     return jsonify({
@@ -49,7 +55,7 @@ def api_status():
         ]
     }), 200
 
-
+# TODO: Add more endpoints for additional device controls (e.g., thermostat, security system)
 @app.route("/api/toggle-lights", methods=["POST"])
 def api_toggle_lights():
     """
@@ -71,7 +77,8 @@ def api_toggle_lights():
         logger.error(f"Unexpected error in toggle lights endpoint: {e}")
         return jsonify({"status": "error", "details": str(e)}), 500
 
-
+# TODO: Add endpoint for playing media files via VLC or similar media player
+# TODO: Need to figure out architecture for media playback still
 @app.route("/api/play-media", methods=["POST"])
 def api_play_media():
     """

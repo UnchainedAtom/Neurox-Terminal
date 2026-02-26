@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Neurox Terminal - Control Panel</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles/neurox-terminal.css') }}">
+</head>
+<body>
+    <!-- CRT Screen Effect -->
+    <div class="crt"></div>
+
+    <!-- Main Container -->
+    <div class="container-terminal">
+        <!-- Header -->
+        <div class="header">
+            <h1>⚡ NEUROX NODE ⚡</h1>
+            <p class="subtitle">&gt; HOME CONTROL PANEL</p>
+        </div>
+
+        <!-- Status Panel -->
+        <div class="status-panel">
+            <h2 style="color: var(--accent-red); text-shadow: 0px 0px 15px var(--accent-red); margin-bottom: 1rem; text-transform: uppercase;">System Status</h2>
+            
+            <div class="status-item">
+                <span class="status-label">API Status</span>
+                <span class="status-value" id="api-status">Checking...</span>
+            </div>
+            
+            <div class="status-item">
+                <span class="status-label">Mode</span>
+                <span class="status-value demo" id="demo-mode">Demo Mode</span>
+            </div>
+            
+            <div class="status-item">
+                <span class="status-label">Home Assistant</span>
+                <span class="status-value" id="ha-status">Not Configured</span>
+            </div>
+            
+            <div class="status-item">
+                <span class="status-label">Last Updated</span>
+                <span class="status-value" id="last-updated">--:--:--</span>
+            </div>
+        </div>
+
+        <!-- Control Section -->
+        <div class="control-section">
+            <!-- Lights Control -->
+            <div class="control-card">
+                <h3>Lighting</h3>
+                <p>Toggle overhead lights on/off</p>
+                <button class="btn-terminal" onclick="toggleLights()" id="lights-btn">Toggle Lights</button>
+                <div id="lights-response"></div>
+            </div>
+
+            <!-- Media Control -->
+            <div class="control-card">
+                <h3>Media</h3>
+                <p>Start media playback</p>
+                <button class="btn-terminal" onclick="playMedia()" id="media-btn">Play Media</button>
+                <div id="media-response"></div>
+            </div>
+
+            <!-- Refresh Status -->
+            <div class="control-card">
+                <h3>Status</h3>
+                <p>Refresh system status</p>
+                <button class="btn-terminal" onclick="refreshStatus()">Refresh Status</button>
+                <div id="status-response"></div>
+            </div>
+        </div>
+
+        <!-- Activity Log -->
+        <div class="activity-log">
+            <h3>Activity Log</h3>
+            <div id="activity-log">
+                <div class="log-entry info">
+                    <span class="log-timestamp">[INIT]</span>
+                    System initialized. Ready for commands.
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- JavaScript -->
+    <script>
+        const API_BASE = window.location.origin;
+        const logContainer = document.getElementById('activity-log');
+
+        // Add log entry
+        function addLog(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const entry = document.createElement('div');
+            entry.className = `log-entry ${type}`;
+            entry.innerHTML = `<span class="log-timestamp">[${timestamp}]</span>${message}`;
+            logContainer.appendChild(entry);
+            logContainer.scrollTop = logContainer.scrollHeight;
+        }
+
+        // Update last updated time
+        function updateTimestamp() {
+            const now = new Date().toLocaleTimeString();
+            document.getElementById('last-updated').textContent = now;
+        }
+
+        // Display response message
+        function showResponse(elementId, message, isSuccess) {
+            const element = document.getElementById(elementId);
+            element.innerHTML = `<div class="response-message ${isSuccess ? 'success' : 'error'}">${message}</div>`;
+            setTimeout(() => {
+                element.innerHTML = '';
+            }, 3000);
+        }
+
+        // Refresh Status
+        async function refreshStatus() {
+            try {
+                addLog('Refreshing system status...', 'info');
+                const response = await fetch(`${API_BASE}/api/status`);
+                const data = await response.json();
+
+                document.getElementById('api-status').textContent = '✓ Online';
+                document.getElementById('api-status').className = 'status-value';
+                
+                document.getElementById('demo-mode').textContent = data.demo_mode ? 'Demo Mode' : 'Production';
+                document.getElementById('demo-mode').className = `status-value ${data.demo_mode ? 'demo' : ''}`;
+                
+                document.getElementById('ha-status').textContent = data.home_assistant_configured ? '✓ Connected' : 'Not Configured';
+                document.getElementById('ha-status').className = data.home_assistant_configured ? 'status-value' : 'status-value';
+
+                updateTimestamp();
+                addLog('✓ Status updated successfully', 'success');
+                showResponse('status-response', '✓ Status refreshed', true);
+            } catch (error) {
+                addLog(`✗ Error: ${error.message}`, 'error');
+                showResponse('status-response', `Error: ${error.message}`, false);
+            }
+        }
+
+        // Toggle Lights
+        async function toggleLights() {
+            try {
+                const btn = document.getElementById('lights-btn');
+                btn.disabled = true;
+                btn.textContent = 'Toggling...';
+
+                addLog('Toggling lights...', 'info');
+
+                const response = await fetch(`${API_BASE}/api/toggle-lights`, {
+                    method: 'POST'
+                });
+                const data = await response.json();
+
+                if (response.ok) {
+                    addLog('✓ Lights toggled successfully', 'success');
+                    showResponse('lights-response', '✓ Lights toggled', true);
+                } else {
+                    addLog(`✗ Failed to toggle lights: ${data.details}`, 'error');
+                    showResponse('lights-response', `Error: ${data.details}`, false);
+                }
+
+                updateTimestamp();
+            } catch (error) {
+                addLog(`✗ Error: ${error.message}`, 'error');
+                showResponse('lights-response', `Error: ${error.message}`, false);
+            } finally {
+                const btn = document.getElementById('lights-btn');
+                btn.disabled = false;
+                btn.textContent = 'Toggle Lights';
+            }
+        }
+
+        // Play Media
+        async function playMedia() {
+            try {
+                const btn = document.getElementById('media-btn');
+                btn.disabled = true;
+                btn.textContent = 'Playing...';
+
+                addLog('Starting media playback...', 'info');
+
+                const response = await fetch(`${API_BASE}/api/play-media`, {
+                    method: 'POST'
+                });
+                const data = await response.json();
+
+                if (response.ok) {
+                    addLog('✓ Media playback started', 'success');
+                    showResponse('media-response', '✓ Media started', true);
+                } else {
+                    addLog(`✗ Failed to play media: ${data.details}`, 'error');
+                    showResponse('media-response', `Error: ${data.details}`, false);
+                }
+
+                updateTimestamp();
+            } catch (error) {
+                addLog(`✗ Error: ${error.message}`, 'error');
+                showResponse('media-response', `Error: ${error.message}`, false);
+            } finally {
+                const btn = document.getElementById('media-btn');
+                btn.disabled = false;
+                btn.textContent = 'Play Media';
+            }
+        }
+
+        // Initialize on page load
+        window.addEventListener('load', () => {
+            refreshStatus();
+            // Auto-refresh status every 30 seconds
+            setInterval(refreshStatus, 30000);
+        });
+    </script>
+</body>
+</html>

@@ -5,16 +5,16 @@ python neuronodeTerminal_api.py
 
 # 2. Health check
 echo "=== Health Check ==="
-curl http://localhost:5000/
+curl http://localhost:8000/
 
 # 3. Service status
 echo "=== Service Status ==="
-curl http://localhost:5000/api/status
+curl http://localhost:8000/api/status
 
 # 4. Control endpoint
 echo "=== Toggle Lights ==="
-curl -X POST http://localhost:5000/api/toggle-lights
+curl -X POST http://localhost:8000/api/toggle-lights
 
 # 5. Error handling
 echo "=== Invalid endpoint ==="
-curl http://localhost:5000/invalid
+curl http://localhost:8000/invalid

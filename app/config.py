@@ -12,21 +12,21 @@ load_dotenv()
 class Config:
     """Application configuration."""
     
-    # Home Assistant settings
+    # Home Assistant settings, default to localhost for testing in demo mode
     HOME_ASSISTANT_URL = os.getenv('HOME_ASSISTANT_URL', 'http://localhost:8123')
     HOME_ASSISTANT_TOKEN = os.getenv('HOME_ASSISTANT_TOKEN', '')
     
-    # Entity configuration
+    # Entity configuration, get entity from home assistant or use default for demo mode
     LIGHT_ENTITY_ID = os.getenv('LIGHT_ENTITY_ID', 'light.overhead_light')
     
-    # Media settings
+    # Media settings, default to a sample media file path for demo mode
     MEDIA_PATH = os.getenv('MEDIA_PATH', '/home/pi/media.mp4')
     
     # Flask settings
     FLASK_ENV = os.getenv('FLASK_ENV', 'development')
     FLASK_DEBUG = os.getenv('FLASK_DEBUG', 'False').lower() in ('true', '1', 't')
     FLASK_HOST = os.getenv('FLASK_HOST', '0.0.0.0')
-    FLASK_PORT = int(os.getenv('FLASK_PORT', 5000))
+    FLASK_PORT = int(os.getenv('FLASK_PORT', 8000))
     
     # Demo mode (when True, doesn't require Home Assistant connection)
     DEMO_MODE = os.getenv('DEMO_MODE', 'False').lower() in ('true', '1', 't')

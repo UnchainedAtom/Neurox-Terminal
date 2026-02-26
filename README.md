@@ -1,17 +1,16 @@
 # Neurox Terminal
 
-A Flask-based REST API for controlling smart home devices via Home Assistant. Designed as a terminal-style interface for Raspberry Pi, with built-in demo mode for testing without a live Home Assistant instance.
+A Flask API for controlling smart home devices through Home Assistant. Originally built for a Raspberry Pi with a terminal vibe—complete with the glowing retro aesthetic.
 
-## Features
+## What it does
 
-- **RESTful API** - Clean, modern API endpoints for device control
-- **Home Assistant Integration** - Full integration with Home Assistant API
-- **Demo Mode** - Built-in demo/mock mode for testing without external dependencies
-- **Environment Configuration** - 12-factor app configuration via environment variables
-- **Comprehensive Logging** - Detailed logging for debugging and monitoring
-- **Error Handling** - Robust error handling with informative responses
-- **Docker Support** - Production-ready Dockerfile with health checks
-- **Documentation** - Well-documented code and API endpoints
+- **REST API** - Simple endpoints to toggle lights and control media
+- **Home Assistant integration** - Talks directly to your Home Assistant instance
+- **Demo mode** - Works without Home Assistant so you can actually test it
+- **Configuration via environment variables** - No hardcoded credentials (secure by default)
+- **Actually logs things** - Timestamps, errors, everything you'd need to debug
+- **Docker ready** - Build and run in a container, health checks included
+- **Comes with a dashboard** - Web UI with that retro terminal aesthetic
 
 ## Architecture
 
@@ -31,352 +30,260 @@ Neurox Terminal API
 
 ## Prerequisites
 
-- Python 3.8+
-- Home Assistant (optional - demo mode works without it)
-- pip or pip3
+- Python 3.8 or newer
+- Home Assistant (optional—demo mode works without it)
+- pip
 
-## Installation
+## Setup
 
-### 1. Clone the Repository
+Clone it:
 
 ```bash
 git clone https://github.com/UnchainedAtom/Neurox-Terminal.git
 cd Neurox-Terminal
 ```
 
-### 2. Create Virtual Environment (Recommended)
+Create a virtual environment (you should):
 
 ```bash
 python3 -m venv neuroxnodeTerminal-venv
-source neuroxnodeTerminal-venv/bin/activate  # On Windows: neuroxnodeTerminal-venv\Scripts\activate
+source neuroxnodeTerminal-venv/bin/activate  # Windows: neuroxnodeTerminal-venv\Scripts\activate
 ```
 
-### 3. Install Dependencies
+Install dependencies:
 
 ```bash
 pip install -r requirements.txt
 ```
 
-### 4. Configure Environment
-
-Copy the example environment file and configure:
+Set up your environment:
 
 ```bash
 cp .env.example .env
 ```
 
-Edit `.env` and update values:
+Edit the `.env` file with your setup:
 
 ```env
-# Home Assistant Configuration
+# If you have Home Assistant
 HOME_ASSISTANT_URL=http://your-homeassistant-instance:8123
 HOME_ASSISTANT_TOKEN=your_long_lived_access_token_here
+LIGHT_ENTITY_ID=light.your_light
 
-# Entity Configuration
-LIGHT_ENTITY_ID=light.your_light_entity
-
-# Flask Configuration
-FLASK_HOST=0.0.0.0
-FLASK_PORT=5000
-
-# Demo Mode (set to True for testing without Home Assistant)
-DEMO_MODE=False
+# Or just run in demo mode (no Home Assistant needed)
+DEMO_MODE=True
 ```
 
-## Running the Application
+## Running it
 
-### Development Mode (Local)
+Start the API:
 
 ```bash
 python neuronodeTerminal_api.py
 ```
 
-The API will be available at `http://localhost:5000`
+It'll be available at `http://localhost:8000`
 
-### Demo Mode (No Home Assistant Required)
+To test without Home Assistant, just make sure `DEMO_MODE=True` in your `.env` and everything works. All endpoints return success responses so you can test the whole flow.
 
-For testing without a live Home Assistant instance:
+### Docker (if you prefer containers)
 
-```env
-DEMO_MODE=True
+```bash
+docker-compose up
 ```
 
-### Production with Docker
-
-Build the Docker image:
+Or build and run manually:
 
 ```bash
 docker build -t neurox-terminal .
-```
-
-Run the container:
-
-```bash
-docker run -p 5000:5000 \
-  -e HOME_ASSISTANT_URL=http://homeassistant:8123 \
-  -e HOME_ASSISTANT_TOKEN=your_token \
-  -e LIGHT_ENTITY_ID=light.your_light \
-  neurox-terminal
-```
-
-Or with environment file:
-
-```bash
-docker run -p 5000:5000 --env-file .env neurox-terminal
+docker run -p 8000:8000 -e DEMO_MODE=True neurox-terminal
 ```
 
 ### On Raspberry Pi
-
-Using the provided startup script:
 
 ```bash
 ./run.sh
 ```
 
-(Update paths in `run.sh` as needed for your setup)
+It'll create the venv, install dependencies, and start the API. Just edit paths in the script if needed.
 
-## API Documentation
+## API Endpoints
 
-### Health Check
+### GET `/`
 
-**GET** `/`
+Main dashboard UI. Open in a browser to see the control panel.
 
-Returns service status.
+### GET `/api/status`
 
-```bash
-curl http://localhost:5000/
-```
-
-Response:
-```json
-{
-  "status": "running",
-  "service": "Neurox Terminal API",
-  "demo_mode": false,
-  "message": "Neuroxnode API is running"
-}
-```
-
-### Status Endpoint
-
-**GET** `/api/status`
-
-Returns detailed status information.
+Check if the API is alive and what mode it's in.
 
 ```bash
-curl http://localhost:5000/api/status
+curl http://localhost:8000/api/status
 ```
 
-Response:
 ```json
 {
   "status": "operational",
-  "demo_mode": false,
-  "home_assistant_configured": true,
-  "endpoints": [
-    "/api/toggle-lights",
-    "/api/play-media",
-    "/api/status"
-  ]
+  "demo_mode": true,
+  "home_assistant_configured": false,
+  "endpoints": ["/api/toggle-lights", "/api/play-media", "/api/status"]
 }
 ```
 
-### Toggle Lights
+### POST `/api/toggle-lights`
 
-**POST** `/api/toggle-lights`
-
-Toggle the configured light entity.
+Toggle the lights.
 
 ```bash
-curl -X POST http://localhost:5000/api/toggle-lights
+curl -X POST http://localhost:8000/api/toggle-lights
 ```
 
-Response (Success):
-```json
-{
-  "status": "success",
-  "response": {...}
-}
-```
+Returns `{"status": "success"}` in demo mode, or talks to Home Assistant if configured.
 
-Response (Demo Mode):
-```json
-{
-  "status": "success",
-  "demo": true,
-  "message": "Lights toggled (demo mode)"
-}
-```
+### POST `/api/play-media`
 
-### Play Media
-
-**POST** `/api/play-media`
-
-Play media file via VLC.
+Start media playback (via VLC or Home Assistant).
 
 ```bash
-curl -X POST http://localhost:5000/api/play-media
+curl -X POST http://localhost:8000/api/play-media
 ```
 
-Response:
-```json
-{
-  "status": "success",
-  "message": "media playing"
-}
-```
+Same responses as above.
 
-## Configuration Details
+## Configuration
 
-### Environment Variables
+These go in your `.env` file:
 
-| Variable | Default | Required | Description |
-|----------|---------|----------|-------------|
-| `HOME_ASSISTANT_URL` | `http://localhost:8123` | No | Home Assistant base URL |
-| `HOME_ASSISTANT_TOKEN` | (empty) | Yes* | Home Assistant long-lived access token (*not required in demo mode) |
-| `LIGHT_ENTITY_ID` | `light.overhead_light` | No | Home Assistant light entity ID |
-| `MEDIA_PATH` | `/home/pi/media.mp4` | No | Path to media file |
-| `FLASK_HOST` | `0.0.0.0` | No | Flask server bind address |
-| `FLASK_PORT` | `5000` | No | Flask server port |
-| `FLASK_ENV` | `development` | No | Flask environment (`development` or `production`) |
-| `FLASK_DEBUG` | `False` | No | Enable Flask debug mode |
-| `DEMO_MODE` | `False` | No | Enable demo/mock mode (no Home Assistant required) |
+- `DEMO_MODE` - Set to `True` to run without Home Assistant (useful for testing)
+- `HOME_ASSISTANT_URL` - Where your Home Assistant is running (e.g., `http://homeassistant.local:8123`)
+- `HOME_ASSISTANT_TOKEN` - Long-lived access token from Home Assistant
+- `LIGHT_ENTITY_ID` - The light you want to control (e.g., `light.bedroom`)
+- `MEDIA_PATH` - Path to your media file (if using VLC)
+- `FLASK_PORT` - What port to run on (default: 8000)
+- `FLASK_DEBUG` - Set to `True` for dev, `False` for production
 
-### Home Assistant Setup
+### Getting your Home Assistant token
 
-To get your Home Assistant token:
-
-1. Log in to Home Assistant
-2. Go to Profile (bottom left)
+1. Log into Home Assistant
+2. Click your profile (bottom left)
 3. Scroll down to "Long-Lived Access Tokens"
-4. Click "Create Token"
-5. Copy the token and add to `.env` file
+4. Create one and paste it in `.env`
 
-## Logging
+## Logging & Debugging
 
-The application provides detailed logging for debugging and monitoring:
+The app logs everything to console with timestamps. Useful for debugging when things go wrong:
 
 ```
-2025-02-25 10:30:45,123 - app.routes - INFO - Light toggle request received
-2025-02-25 10:30:45,234 - app.controller - INFO - Toggling light: light.overhead_light
-2025-02-25 10:30:45,450 - app.controller - INFO - Light toggled successfully
+2026-02-25 18:07:40 - app.routes - INFO - Light toggle request received
+2026-02-25 18:07:40 - app.controller - INFO - DEMO MODE: Lights toggled (virtual)
+2026-02-25 18:07:40 - werkzeug - INFO - 127.0.0.1 - "POST /api/toggle-lights HTTP/1.1" 200
 ```
 
-Configure log level via environment variable or code modifications.
+Set `FLASK_DEBUG=True` in `.env` for more verbose output during development.
 
-## Testing with Demo Mode
+## Testing
 
-The easiest way to test the API without Home Assistant:
+The easiest way to test everything is with demo mode. No Home Assistant needed:
 
-1. **Enable Demo Mode:**
-   ```env
-   DEMO_MODE=True
-   ```
+```bash
+# Make sure .env has:
+DEMO_MODE=True
 
-2. **Start the application:**
-   ```bash
-   python neuronodeTerminal_api.py
-   ```
+# Start it:
+python neuronodeTerminal_api.py
 
-3. **Test endpoints:**
-   ```bash
-   # Test health
-   curl http://localhost:5000/
-
-   # Test light toggle (will return success in demo mode)
-   curl -X POST http://localhost:5000/api/toggle-lights
-
-   # Test media playback (will return success in demo mode)
-   curl -X POST http://localhost:5000/api/play-media
-   ```
-
-## Deployment Recommendations
-
-### Raspberry Pi Deployment
-
-1. Use systemd service for auto-start:
-   ```bash
-   sudo systemctl enable neurox-terminal
-   sudo systemctl start neurox-terminal
-   ```
-
-2. Configure reverse proxy with nginx:
-   ```nginx
-   server {
-       listen 80;
-       server_name neurox-terminal.local;
-       
-       location / {
-           proxy_pass http://127.0.0.1:5000;
-           proxy_set_header Host $host;
-       }
-   }
-   ```
-
-### Docker Deployment
-
-Use Docker Compose for local/dev deployments:
-
-```yaml
-version: '3.8'
-services:
-  neurox-terminal:
-    build: .
-    ports:
-      - "5000:5000"
-    environment:
-      - HOME_ASSISTANT_URL=http://homeassistant:8123
-      - HOME_ASSISTANT_TOKEN=${HA_TOKEN}
-      - DEMO_MODE=False
-    depends_on:
-      - homeassistant
+# In another terminal, test:
+curl http://localhost:8000/
+curl -X POST http://localhost:8000/api/toggle-lights
+curl -X POST http://localhost:8000/api/play-media
 ```
 
-## Future Enhancements
+All endpoints return success responses in demo mode, so you can see the whole flow works without any actual hardware.
 
-- [ ] Web UI Dashboard
-- [ ] Additional device types (switches, thermostats, sensors)
-- [ ] User authentication & authorization
-- [ ] Automation scheduling
-- [ ] Event webhooks from Home Assistant
-- [ ] MQTT support
-- [ ] Historical data storage
-- [ ] Multi-user support
+## Deployment
+
+### On a Raspberry Pi
+
+Just run the script:
+
+```bash
+./run.sh
+```
+
+For auto-start on boot, use systemd or cron.
+
+### With Docker
+
+Simplest:
+
+```bash
+docker-compose up
+```
+
+Or build it yourself:
+
+```bash
+docker build -t neurox-terminal .
+docker run -p 8000:8000 -e DEMO_MODE=True neurox-terminal
+```
+
+### Reverse proxy (nginx)
+
+If you want it accessible at a domain:
+
+```nginx
+server {
+    listen 80;
+    server_name home.local;
+    
+    location / {
+        proxy_pass http://127.0.0.1:8000;
+        proxy_set_header Host $host;
+    }
+}
+```
+
+## What's next?
+
+Things I'd like to add eventually:
+
+- More device types (switches, thermostats, etc.)
+- Better UI with more controls
+- Auth/user support
+- Scheduling/automation
+- Webhooks from Home Assistant
+- MQTT support
+- Data history/graphs
 
 ## Troubleshooting
 
-### Home Assistant Connection Issues
+### Can't connect to Home Assistant?
 
-**Problem:** "Failed to connect to Home Assistant"
+- Make sure the URL is correct and you can ping it
+- Check that your token is still valid (recreate if needed)
+- Verify firewall isn't blocking port 8123
 
-**Solutions:**
-- Verify `HOME_ASSISTANT_URL` is correct and accessible
-- Check that `HOME_ASSISTANT_TOKEN` is valid (recreate if necessary)
-- Ensure firewall allows connections to port 8123
-- Test with `curl`: `curl -H "Authorization: Bearer YOUR_TOKEN" http://your-ha:8123/api/`
+### `ModuleNotFoundError`?
 
-### Missing Dependencies
-
-**Problem:** `ModuleNotFoundError: No module named 'flask'`
-
-**Solution:**
 ```bash
 pip install -r requirements.txt
 ```
 
-### Port Already in Use
+### Port already in use?
 
-**Problem:** `Address already in use`
+Change it in `.env`:
 
-**Solution:**
-Change the port in `.env`:
 ```env
-FLASK_PORT=5001
+FLASK_PORT=8001
 ```
+
+### It still doesn't work?
+
+Check the logs—they're printed to console. Look for error messages with timestamps.
 
 ## License
 
-MIT License - Feel free to use this project as a portfolio piece or for personal use.
+MIT - Use it however you want.
 
 ## Author
 
@@ -384,4 +291,4 @@ UnchainedAtom
 
 ## Contributing
 
-This is primarily a personal portfolio project, but suggestions and improvements are welcome!
+This started as a personal project for my Raspberry Pi. If you have ideas or improvements, feel free to open an issue or PR!
