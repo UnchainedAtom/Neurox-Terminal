@@ -11,26 +11,44 @@ load_dotenv()
 
 class Config:
     """Application configuration."""
-    
+
     # Home Assistant settings, default to localhost for testing in demo mode
     HOME_ASSISTANT_URL = os.getenv('HOME_ASSISTANT_URL', 'http://localhost:8123')
     HOME_ASSISTANT_TOKEN = os.getenv('HOME_ASSISTANT_TOKEN', '')
-    
-    # Entity configuration, get entity from home assistant or use default for demo mode
+
+    # Dashboard defaults
+    DEFAULT_ROOM = os.getenv('DEFAULT_ROOM', 'home')
+    DEFAULT_DASHBOARD_MODE = os.getenv('DEFAULT_DASHBOARD_MODE', 'lighting')
+
+    # Entity configuration
     LIGHT_ENTITY_ID = os.getenv('LIGHT_ENTITY_ID', 'light.overhead_light')
-    
+    LIGHT_ENTITY_IDS = [
+        entity.strip()
+        for entity in os.getenv('LIGHT_ENTITY_IDS', '').split(',')
+        if entity.strip()
+    ]
+
+    SCENE_ENTITY_IDS = {
+        "party_mode": os.getenv('SCENE_PARTY_MODE', 'scene.party_mode'),
+        "matrix_green": os.getenv('SCENE_MATRIX_GREEN', 'scene.matrix_green'),
+        "red_alert": os.getenv('SCENE_RED_ALERT', 'scene.red_alert'),
+        "blackout": os.getenv('SCENE_BLACKOUT', 'scene.blackout'),
+        "normal": os.getenv('SCENE_NORMAL', 'scene.normal'),
+        "mainframe_breach": os.getenv('SCENE_MAINFRAME_BREACH', os.getenv('SCENE_RED_ALERT', 'scene.red_alert')),
+    }
+
     # Media settings, default to a sample media file path for demo mode
     MEDIA_PATH = os.getenv('MEDIA_PATH', '/home/pi/media.mp4')
-    
+
     # Flask settings
     FLASK_ENV = os.getenv('FLASK_ENV', 'development')
     FLASK_DEBUG = os.getenv('FLASK_DEBUG', 'False').lower() in ('true', '1', 't')
     FLASK_HOST = os.getenv('FLASK_HOST', '0.0.0.0')
     FLASK_PORT = int(os.getenv('FLASK_PORT', 8000))
-    
+
     # Demo mode (when True, doesn't require Home Assistant connection)
     DEMO_MODE = os.getenv('DEMO_MODE', 'False').lower() in ('true', '1', 't')
-    
+
     @classmethod
     def validate(cls):
         """Validate configuration. Raises error if required settings are invalid."""

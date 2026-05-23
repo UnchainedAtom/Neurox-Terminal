@@ -1,19 +1,19 @@
 # Neurox Terminal
 
-A Flask API for controlling smart home devices with a retro terminal style web dashboard and demo mode for testing without Home Assistant.
+A Flask-based home terminal for a Raspberry Pi / CRT smart-home control panel. Lighting is the primary working module, with Home Assistant as the integration layer and a retro terminal UI built for small-screen readability.
 
 ---
 
 ## Overview
 
 **Concept:**  
-I have many different smart devices in my house, with many different apps to control them.  I wanted to standardize these items into one location that could be physically interacted with.  I also wanted this to feel like an older retro terminal.  Originally this was developed on a Raspberry Pi, which ran Home Assistant, and connected to an old CRT.  For Demo purposes this only runs locally and mimics the calls that would be made on a real system. 
+I have many different smart devices in my house, with many different apps to control them. I wanted to standardize these items into one location that could be physically interacted with. The terminal is designed for a Raspberry Pi connected to a PVM CRT, with a readable retro terminal flow inspired by Fallout-style menus, cyberpunk interfaces, Blade Runner, and Alien.
 
 **Solution:**  
-Created a RESTful API backend (Flask + Python) with environment-based configuration, paired with a responsive terminal-themed web UI (HTML/CSS/JavaScript). Includes demo mode for testing without external dependencies, Docker containerization for deployments, and structured logging for operational visibility.
+Created a RESTful API backend (Flask + Python) with environment-based configuration, paired with a terminal-themed web UI (HTML/CSS/JavaScript). Home Assistant handles the actual smart-home integrations, including Hue. The app calls Home Assistant rather than talking directly to individual device ecosystems.
 
 **Outcome:**  
-A fully functional smart home control API that works locally (with or without Home Assistant), runs in Docker, and comes with a working web dashboard. Can toggle lights, control media playback, and monitor system status in real-time. Deployable to Raspberry Pi or cloud infrastructure.
+A working first pass for Home Assistant lighting control: fetch lights/scenes, activate configured scenes, turn lights on/off, and fail cleanly when Home Assistant is unavailable. Media and music are future modules.
 
 ---
 
@@ -38,9 +38,10 @@ Logging System (structured output)
 **Flow:**
 1. User opens dashboard UI (`GET /`)
 2. Frontend fetches status via `GET /api/status`
-3. User clicks button (e.g., "Toggle Lights")
-4. Frontend posts to `POST /api/toggle-lights`
-5. Backend checks demo mode or calls Home Assistant
+3. User selects a terminal section such as `LIGHTING CONTROL`
+4. Frontend fetches lighting state via `GET /api/lighting`
+5. User sends a light or scene command
+6. Backend checks demo mode or calls Home Assistant
 6. Response returns to frontend, UI updates
 7. Activity logged with timestamp
 
@@ -48,21 +49,24 @@ Logging System (structured output)
 
 ## Core Features
 
-- **REST API** - Clean endpoints for device control (`/api/toggle-lights`, `/api/play-media`, `/api/status`)
-- **Web Dashboard** - Terminal-style UI with real-time status and activity logging
+- **REST API** - Clean endpoints for lighting, scenes, legacy media, and status
+- **Terminal UI** - Fallout-style menu flow with one command family visible at a time
+- **Home Assistant Client** - Fetches states and calls Home Assistant service endpoints
+- **Scene Shortcuts** - Configurable party scene buttons for dramatic lighting changes
 - **Demo Mode** - Fully functional without Home Assistant (for testing)
 - **Environment Configuration** - 12-factor app pattern, no hardcoded secrets
 - **Structured Logging** - Timestamped logs for all requests and errors
 - **Docker Ready** - Multi-stage Dockerfile with health checks
 - **Error Handling** - Proper HTTP status codes and JSON error responses
-- **Activity Log** - Real-time event tracking in the UI
+- **Activity Log** - Command-style event tracking in the UI
 
 ---
 
 ## Technical Stack
 
 **Languages / Runtime**
-- Python 3.11
+- Python 3.11 preferred
+- Python 3.8+ should work for the current Flask app
 
 **Frameworks / Libraries**
 - Flask 3.1.1 (API framework)
@@ -78,6 +82,7 @@ Logging System (structured output)
 - HTML5
 - CSS3 (custom terminal styling)
 - Vanilla JavaScript (API calls, UI updates)
+- No Node/npm build step is required
 
 ---
 
@@ -131,7 +136,14 @@ Or for real Home Assistant integration:
 DEMO_MODE=False
 HOME_ASSISTANT_URL=http://your-homeassistant:8123
 HOME_ASSISTANT_TOKEN=your_long_lived_access_token
-LIGHT_ENTITY_ID=light.your_light
+LIGHT_ENTITY_ID=light.your_default_light
+LIGHT_ENTITY_IDS=light.living_room,light.office_lamp
+SCENE_PARTY_MODE=scene.party_mode
+SCENE_MATRIX_GREEN=scene.matrix_green
+SCENE_RED_ALERT=scene.red_alert
+SCENE_BLACKOUT=scene.blackout
+SCENE_NORMAL=scene.normal
+SCENE_MAINFRAME_BREACH=scene.red_alert
 FLASK_PORT=8000
 ```
 
@@ -142,6 +154,39 @@ python neuronodeTerminal_api.py
 ```
 
 Default URL: `http://localhost:8000`
+
+### Home Assistant Token
+
+Create a long-lived access token in Home Assistant:
+
+1. Open Home Assistant in your browser.
+2. Click your user profile in the lower-left corner.
+3. Scroll to **Long-lived access tokens**.
+4. Click **Create Token**.
+5. Name it something like `Neurox Terminal`.
+6. Copy the token into `.env` as `HOME_ASSISTANT_TOKEN`.
+
+The token is shown once. If you lose it, delete it and create a new one.
+
+### Lighting Configuration
+
+The app discovers lights from Home Assistant via `/api/states`.
+
+Use `LIGHT_ENTITY_IDS` when you want the terminal to show only a curated list:
+
+```env
+LIGHT_ENTITY_IDS=light.living_room,light.office_lamp,light.hallway
+```
+
+Leave it blank to show every Home Assistant light entity.
+
+Scene buttons are configured by entity ID:
+
+```env
+SCENE_RED_ALERT=scene.red_alert
+SCENE_BLACKOUT=scene.blackout
+SCENE_NORMAL=scene.normal
+```
 
 ---
 
@@ -166,10 +211,14 @@ docker compose up --env-file .env
 ### On Raspberry Pi
 
 ```bash
+git clone https://github.com/UnchainedAtom/Neurox-Terminal.git
+cd Neurox-Terminal
+cp .env.example .env
+nano .env
 ./run.sh
 ```
 
-Creates venv, installs dependencies, and starts the API.
+`run.sh` creates the virtual environment, installs dependencies, and starts the API. Set `FLASK_HOST=0.0.0.0` so another device on the home network can reach it, or use the Pi browser directly at `http://localhost:8000`.
 
 ---
 
@@ -192,6 +241,15 @@ curl http://localhost:8000/api/status
 # Toggle lights (returns success in demo)
 curl -X POST http://localhost:8000/api/toggle-lights
 
+# Lighting dashboard data
+curl http://localhost:8000/api/lighting
+
+# Turn a light on
+curl -X POST http://localhost:8000/api/lights/light.overhead_light/turn-on
+
+# Activate a configured scene
+curl -X POST http://localhost:8000/api/scenes/red_alert
+
 # Play media (returns success in demo)
 curl -X POST http://localhost:8000/api/play-media
 ```
@@ -201,9 +259,9 @@ curl -X POST http://localhost:8000/api/play-media
 Open browser: `http://localhost:8000/`
 
 You should see:
-- Terminal-style dashboard
-- System status panel (API status, demo mode indicator, etc.)
-- Control buttons (lights, media)
+- Terminal-style main menu
+- Lighting Control, Party Protocols, Media Relay, and System Status sections
+- Large CRT-friendly commands
 - Activity log showing each action
 
 ### Expected Logs
@@ -255,10 +313,10 @@ When you click a button:
 ## Known Limitations
 
 - **No database** - Status/history isn't persisted, restarts lose event log
-- **Single device** - Currently hardcoded to one light entity and one media path
+- **No advanced light controls yet** - Current scope is on/off plus scene activation
 - **No authentication** - Anyone with network access can control devices
-- **Demo mode only mocks responses** - Doesn't actually control real devices
-- **Media playback only conept** - Media playback is only conceptual
+- **Demo mode only mocks responses** - It does not control real devices
+- **Media playback only concept** - Media/music are future modules
 - **Home Assistant dependency** - Real mode requires Home Assistant instance on same network
 
 ---
