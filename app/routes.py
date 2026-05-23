@@ -5,7 +5,7 @@ Defines all HTTP endpoints for device control.
 import logging
 from flask import Flask, jsonify, render_template
 from app.config import Config
-from app.controller import toggle_lights, play_media
+from app.controller import get_lighting_dashboard, play_media, run_scene, set_light, toggle_lights
 
 # Configure logging
 logging.basicConfig(
@@ -49,11 +49,52 @@ def api_status():
         "demo_mode": Config.DEMO_MODE,
         "home_assistant_configured": bool(Config.HOME_ASSISTANT_TOKEN),
         "endpoints": [
+            "/api/lighting",
+            "/api/lights/<entity_id>/turn-on",
+            "/api/lights/<entity_id>/turn-off",
+            "/api/scenes/<scene_key>",
             "/api/toggle-lights",
             "/api/play-media",
             "/api/status"
         ]
     }), 200
+
+
+@app.route("/api/lighting")
+def api_lighting():
+    """Return Home Assistant lighting state for the dashboard."""
+    logger.info("Lighting dashboard request received")
+    result = get_lighting_dashboard()
+    status_code = 200 if result.get("status") == "success" else 503
+    return jsonify(result), status_code
+
+
+@app.route("/api/lights/<path:entity_id>/turn-on", methods=["POST"])
+def api_light_turn_on(entity_id):
+    """Turn on a Home Assistant light entity."""
+    logger.info("Light turn on request received: %s", entity_id)
+    result = set_light(entity_id, "turn-on")
+    status_code = 200 if result.get("status") == "success" else 500
+    return jsonify(result), status_code
+
+
+@app.route("/api/lights/<path:entity_id>/turn-off", methods=["POST"])
+def api_light_turn_off(entity_id):
+    """Turn off a Home Assistant light entity."""
+    logger.info("Light turn off request received: %s", entity_id)
+    result = set_light(entity_id, "turn-off")
+    status_code = 200 if result.get("status") == "success" else 500
+    return jsonify(result), status_code
+
+
+@app.route("/api/scenes/<scene_key>", methods=["POST"])
+def api_scene(scene_key):
+    """Activate a configured Home Assistant scene."""
+    logger.info("Scene request received: %s", scene_key)
+    result = run_scene(scene_key)
+    status_code = 200 if result.get("status") == "success" else 500
+    return jsonify(result), status_code
+
 
 # TODO: Add more endpoints for additional device controls (e.g., thermostat, security system)
 @app.route("/api/toggle-lights", methods=["POST"])
