@@ -3,9 +3,19 @@ Routes module for Neurox Terminal API.
 Defines all HTTP endpoints for device control.
 """
 import logging
-from flask import Flask, jsonify, render_template
+from flask import Flask, jsonify, render_template, request
 from app.config import Config
-from app.controller import get_lighting_dashboard, play_media, run_scene, set_light, toggle_lights
+from app.controller import (
+    get_lighting_dashboard,
+    get_media_dashboard,
+    play_media,
+    run_media_preset,
+    run_scene,
+    select_media_source,
+    set_light,
+    set_media_action,
+    toggle_lights,
+)
 
 # Configure logging
 logging.basicConfig(
@@ -53,6 +63,10 @@ def api_status():
             "/api/lights/<entity_id>/turn-on",
             "/api/lights/<entity_id>/turn-off",
             "/api/scenes/<scene_key>",
+            "/api/media",
+            "/api/media/<entity_id>/<action>",
+            "/api/media/<entity_id>/source",
+            "/api/media/presets/<preset_key>",
             "/api/toggle-lights",
             "/api/play-media",
             "/api/status"
@@ -92,6 +106,43 @@ def api_scene(scene_key):
     """Activate a configured Home Assistant scene."""
     logger.info("Scene request received: %s", scene_key)
     result = run_scene(scene_key)
+    status_code = 200 if result.get("status") == "success" else 500
+    return jsonify(result), status_code
+
+
+@app.route("/api/media")
+def api_media():
+    """Return Home Assistant media player state for the dashboard."""
+    logger.info("Media dashboard request received")
+    result = get_media_dashboard()
+    status_code = 200 if result.get("status") == "success" else 503
+    return jsonify(result), status_code
+
+
+@app.route("/api/media/<path:entity_id>/source", methods=["POST"])
+def api_media_source(entity_id):
+    """Select a media_player source."""
+    logger.info("Media source request received: %s", entity_id)
+    payload = request.get_json(silent=True) or {}
+    result = select_media_source(entity_id, payload.get("source", ""))
+    status_code = 200 if result.get("status") == "success" else 500
+    return jsonify(result), status_code
+
+
+@app.route("/api/media/presets/<preset_key>", methods=["POST"])
+def api_media_preset(preset_key):
+    """Run a configured media preset."""
+    logger.info("Media preset request received: %s", preset_key)
+    result = run_media_preset(preset_key)
+    status_code = 200 if result.get("status") == "success" else 500
+    return jsonify(result), status_code
+
+
+@app.route("/api/media/<path:entity_id>/<action>", methods=["POST"])
+def api_media_action(entity_id, action):
+    """Run a media_player action."""
+    logger.info("Media action request received: %s %s", entity_id, action)
+    result = set_media_action(entity_id, action)
     status_code = 200 if result.get("status") == "success" else 500
     return jsonify(result), status_code
 

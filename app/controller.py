@@ -18,6 +18,13 @@ SCENE_LABELS = {
     "mainframe_breach": "Mainframe Breach",
 }
 
+MEDIA_ACTIONS = {
+    "play-pause": "media_play_pause",
+    "next": "media_next_track",
+    "previous": "media_previous_track",
+    "stop": "media_stop",
+}
+
 
 def _demo_lighting_dashboard():
     """Return safe demo data for local development without Home Assistant."""
@@ -81,6 +88,84 @@ def _filter_entities(states, domain):
     return sorted(entities, key=lambda entity: entity["name"].lower())
 
 
+def _filter_media_players(states):
+    players = []
+    for item in states:
+        entity_id = item.get("entity_id", "")
+        if not entity_id.startswith("media_player."):
+            continue
+
+        attributes = item.get("attributes", {})
+        players.append({
+            "entity_id": entity_id,
+            "name": _friendly_name(item),
+            "state": item.get("state", "unknown"),
+            "source": attributes.get("source", ""),
+            "source_list": attributes.get("source_list", []),
+            "media_title": attributes.get("media_title", ""),
+            "media_artist": attributes.get("media_artist", ""),
+        })
+
+    if Config.MEDIA_PLAYER_ENTITY_IDS:
+        allowed = set(Config.MEDIA_PLAYER_ENTITY_IDS)
+        players = [player for player in players if player["entity_id"] in allowed]
+
+    return sorted(players, key=lambda player: player["name"].lower())
+
+
+def _media_presets():
+    presets = []
+    if Config.SPOTIFY_PARTY_PLAYLIST_URI:
+        presets.append({
+            "key": "spotify_party",
+            "label": "Spotify Party Playlist",
+            "entity_id": Config.SPOTIFY_MEDIA_PLAYER_ENTITY_ID,
+        })
+    if Config.SPOTIFY_AMBIENT_PLAYLIST_URI:
+        presets.append({
+            "key": "spotify_ambient",
+            "label": "Spotify Ambient Playlist",
+            "entity_id": Config.SPOTIFY_MEDIA_PLAYER_ENTITY_ID,
+        })
+    if Config.SPOTIFY_DEFAULT_SOURCE:
+        presets.append({
+            "key": "spotify_source",
+            "label": "Select Spotify Source",
+            "entity_id": Config.SPOTIFY_MEDIA_PLAYER_ENTITY_ID,
+        })
+    return presets
+
+
+def _demo_media_dashboard():
+    return {
+        "status": "success",
+        "demo": True,
+        "home_assistant_available": False,
+        "message": "Demo mode active. Media calls are simulated.",
+        "media_players": [
+            {
+                "entity_id": Config.SPOTIFY_MEDIA_PLAYER_ENTITY_ID,
+                "name": "Spotify",
+                "state": "idle",
+                "source": Config.SPOTIFY_DEFAULT_SOURCE or "Demo Speaker",
+                "source_list": [Config.SPOTIFY_DEFAULT_SOURCE or "Demo Speaker"],
+                "media_title": "No active track",
+                "media_artist": "",
+            },
+            {
+                "entity_id": Config.PLEX_MEDIA_PLAYER_ENTITY_ID or "media_player.plex_demo",
+                "name": "Plex Relay",
+                "state": "idle",
+                "source": "",
+                "source_list": [],
+                "media_title": "Plex client standby",
+                "media_artist": "",
+            },
+        ],
+        "presets": _media_presets(),
+    }
+
+
 def get_lighting_dashboard():
     """Return lighting data for the dashboard."""
     if Config.DEMO_MODE:
@@ -108,6 +193,31 @@ def get_lighting_dashboard():
         "default_dashboard_mode": Config.DEFAULT_DASHBOARD_MODE,
         "lights": _filter_entities(states, "light"),
         "scenes": _configured_scenes(),
+    }
+
+
+def get_media_dashboard():
+    """Return Home Assistant media player state for the dashboard."""
+    if Config.DEMO_MODE:
+        return _demo_media_dashboard()
+
+    states_result = get_states()
+    if states_result.get("status") != "success":
+        return {
+            "status": "error",
+            "demo": False,
+            "home_assistant_available": False,
+            "message": states_result.get("message", "Home Assistant unavailable."),
+            "media_players": [],
+            "presets": _media_presets(),
+        }
+
+    return {
+        "status": "success",
+        "demo": False,
+        "home_assistant_available": True,
+        "media_players": _filter_media_players(states_result.get("data", [])),
+        "presets": _media_presets(),
     }
 
 
@@ -150,6 +260,72 @@ def run_scene(scene_key):
     if result.get("status") == "success":
         result["message"] = f"{SCENE_LABELS.get(scene_key, scene_key)} activated."
         result["entity_id"] = entity_id
+    return result
+
+
+def set_media_action(entity_id, action):
+    """Run a standard Home Assistant media_player action."""
+    service = MEDIA_ACTIONS.get(action)
+    if not service:
+        return {"status": "error", "message": "Unsupported media action."}
+
+    if Config.DEMO_MODE:
+        logger.info("DEMO MODE: media %s %s", action, entity_id)
+        return {
+            "status": "success",
+            "demo": True,
+            "message": f"{entity_id} {action.replace('-', ' ')} simulated.",
+        }
+
+    result = call_service("media_player", service, {"entity_id": entity_id})
+    if result.get("status") == "success":
+        result["message"] = f"{entity_id} {action.replace('-', ' ')} sent."
+    return result
+
+
+def select_media_source(entity_id, source):
+    """Select a media_player source."""
+    if not source:
+        return {"status": "error", "message": "Media source is required."}
+
+    if Config.DEMO_MODE:
+        logger.info("DEMO MODE: source %s selected for %s", source, entity_id)
+        return {"status": "success", "demo": True, "message": f"{source} selected."}
+
+    result = call_service("media_player", "select_source", {"entity_id": entity_id, "source": source})
+    if result.get("status") == "success":
+        result["message"] = f"{source} selected."
+    return result
+
+
+def run_media_preset(preset_key):
+    """Run a configured media preset."""
+    if preset_key == "spotify_source":
+        return select_media_source(Config.SPOTIFY_MEDIA_PLAYER_ENTITY_ID, Config.SPOTIFY_DEFAULT_SOURCE)
+
+    playlist_uri = {
+        "spotify_party": Config.SPOTIFY_PARTY_PLAYLIST_URI,
+        "spotify_ambient": Config.SPOTIFY_AMBIENT_PLAYLIST_URI,
+    }.get(preset_key)
+
+    if not playlist_uri:
+        return {"status": "error", "message": f"Unknown media preset: {preset_key}"}
+
+    if Config.DEMO_MODE:
+        logger.info("DEMO MODE: media preset %s", preset_key)
+        return {"status": "success", "demo": True, "message": f"{preset_key.replace('_', ' ')} simulated."}
+
+    result = call_service(
+        "media_player",
+        "play_media",
+        {
+            "entity_id": Config.SPOTIFY_MEDIA_PLAYER_ENTITY_ID,
+            "media_content_id": playlist_uri,
+            "media_content_type": "playlist",
+        },
+    )
+    if result.get("status") == "success":
+        result["message"] = f"{preset_key.replace('_', ' ').title()} started."
     return result
 
 

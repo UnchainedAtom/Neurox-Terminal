@@ -144,6 +144,11 @@ SCENE_RED_ALERT=scene.red_alert
 SCENE_BLACKOUT=scene.blackout
 SCENE_NORMAL=scene.normal
 SCENE_MAINFRAME_BREACH=scene.red_alert
+MEDIA_PLAYER_ENTITY_IDS=media_player.spotify,media_player.living_room_tv
+SPOTIFY_MEDIA_PLAYER_ENTITY_ID=media_player.spotify
+PLEX_MEDIA_PLAYER_ENTITY_ID=media_player.living_room_tv
+SPOTIFY_DEFAULT_SOURCE=Living Room Speaker
+SPOTIFY_PARTY_PLAYLIST_URI=https://open.spotify.com/playlist/your_playlist_id
 FLASK_PORT=8000
 ```
 
@@ -187,6 +192,27 @@ SCENE_RED_ALERT=scene.red_alert
 SCENE_BLACKOUT=scene.blackout
 SCENE_NORMAL=scene.normal
 ```
+
+### Spotify / Plex Media Relay
+
+Spotify and Plex are controlled through Home Assistant `media_player` entities.
+
+Use `MEDIA_PLAYER_ENTITY_IDS` to keep the terminal page small:
+
+```env
+MEDIA_PLAYER_ENTITY_IDS=media_player.spotify,media_player.living_room_tv
+```
+
+Spotify playlist presets are optional:
+
+```env
+SPOTIFY_MEDIA_PLAYER_ENTITY_ID=media_player.spotify
+SPOTIFY_DEFAULT_SOURCE=Living Room Speaker
+SPOTIFY_PARTY_PLAYLIST_URI=https://open.spotify.com/playlist/your_playlist_id
+SPOTIFY_AMBIENT_PLAYLIST_URI=spotify:playlist:your_playlist_id
+```
+
+If a Spotify preset does not play, first start Spotify once on the target device from the Spotify app. Home Assistant can only select sources that Spotify already knows about.
 
 ---
 

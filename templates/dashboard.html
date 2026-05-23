@@ -71,13 +71,13 @@
                 <div class="screen-heading">
                     <div>
                         <p class="eyebrow">MEDIA RELAY</p>
-                        <h2>Future Module</h2>
+                        <h2>Players</h2>
                     </div>
                     <button class="back-command" data-screen="menu">Back</button>
                 </div>
-                <div class="module-placeholder">
-                    <p>Media routing is reserved for a future link to local playback, cast devices, or a media server.</p>
-                    <button id="media-test">Run Legacy Media Test</button>
+                <div id="media-presets" class="preset-grid"></div>
+                <div id="media-list" class="entity-list">
+                    <p class="empty-state">Scanning Home Assistant media relay...</p>
                 </div>
             </section>
 
@@ -116,6 +116,7 @@
         };
 
         let lightingData = { lights: [], scenes: [] };
+        let mediaData = { media_players: [], presets: [] };
 
         function addLog(message, type = 'info') {
             const timestamp = new Date().toLocaleTimeString();
@@ -182,6 +183,46 @@
             `).join('');
         }
 
+        function renderMedia() {
+            const presets = document.getElementById('media-presets');
+            const list = document.getElementById('media-list');
+
+            if (mediaData.presets && mediaData.presets.length > 0) {
+                presets.innerHTML = mediaData.presets.map((preset) => `
+                    <button class="preset-command" data-media-preset="${escapeHtml(preset.key)}">
+                        ${escapeHtml(preset.label)}
+                    </button>
+                `).join('');
+            } else {
+                presets.innerHTML = '';
+            }
+
+            if (!mediaData.media_players || mediaData.media_players.length === 0) {
+                list.innerHTML = '<p class="empty-state">No media players detected. Configure Spotify, Plex clients, or MEDIA_PLAYER_ENTITY_IDS.</p>';
+                return;
+            }
+
+            list.innerHTML = mediaData.media_players.map((player) => {
+                const nowPlaying = [player.media_title, player.media_artist].filter(Boolean).join(' // ') || 'No active media';
+                const source = player.source ? ` // ${player.source}` : '';
+                return `
+                    <article class="entity-row media-row">
+                        <div>
+                            <strong>${escapeHtml(formatName(player))}</strong>
+                            <span>${escapeHtml(player.entity_id)} // ${escapeHtml(player.state || 'unknown')}${escapeHtml(source)}</span>
+                            <span>${escapeHtml(nowPlaying)}</span>
+                        </div>
+                        <div class="entity-actions media-actions">
+                            <button data-media="${escapeHtml(player.entity_id)}" data-media-action="play-pause">Play/Pause</button>
+                            <button data-media="${escapeHtml(player.entity_id)}" data-media-action="next">Next</button>
+                            <button data-media="${escapeHtml(player.entity_id)}" data-media-action="previous">Previous</button>
+                            <button data-media="${escapeHtml(player.entity_id)}" data-media-action="stop">Stop</button>
+                        </div>
+                    </article>
+                `;
+            }).join('');
+        }
+
         async function refreshLighting() {
             try {
                 const response = await fetch(`${API_BASE}/api/lighting`);
@@ -204,6 +245,23 @@
             }
         }
 
+        async function refreshMedia() {
+            try {
+                const response = await fetch(`${API_BASE}/api/media`);
+                const data = await response.json();
+                mediaData = data;
+                renderMedia();
+
+                if (response.ok) {
+                    addLog('Media relay synchronized.', 'success');
+                } else {
+                    addLog(data.message || 'Media relay unavailable.', 'error');
+                }
+            } catch (error) {
+                addLog(`Media sync failed: ${error.message}`, 'error');
+            }
+        }
+
         async function postCommand(url, label, button) {
             const originalText = button.textContent;
             button.disabled = true;
@@ -215,7 +273,7 @@
                 const data = await response.json();
                 if (response.ok) {
                     addLog(data.message || `${label} complete.`, 'success');
-                    await refreshLighting();
+                    await Promise.all([refreshLighting(), refreshMedia()]);
                 } else {
                     addLog(data.message || data.details || `${label} failed.`, 'error');
                 }
@@ -246,11 +304,22 @@
             if (sceneButton) {
                 const sceneKey = sceneButton.dataset.scene;
                 postCommand(`${API_BASE}/api/scenes/${sceneKey}`, sceneLabels[sceneKey] || sceneKey, sceneButton);
+                return;
             }
-        });
 
-        document.getElementById('media-test').addEventListener('click', (event) => {
-            postCommand(`${API_BASE}/api/play-media`, 'LEGACY MEDIA TEST', event.target);
+            const mediaButton = event.target.closest('[data-media]');
+            if (mediaButton) {
+                const entityId = encodeURIComponent(mediaButton.dataset.media);
+                const action = mediaButton.dataset.mediaAction;
+                postCommand(`${API_BASE}/api/media/${entityId}/${action}`, `${mediaButton.dataset.media} ${action}`, mediaButton);
+                return;
+            }
+
+            const presetButton = event.target.closest('[data-media-preset]');
+            if (presetButton) {
+                const presetKey = presetButton.dataset.mediaPreset;
+                postCommand(`${API_BASE}/api/media/presets/${presetKey}`, presetButton.textContent.trim(), presetButton);
+            }
         });
 
         document.addEventListener('keydown', (event) => {
@@ -261,7 +330,11 @@
 
         window.addEventListener('load', () => {
             refreshLighting();
-            setInterval(refreshLighting, 30000);
+            refreshMedia();
+            setInterval(() => {
+                refreshLighting();
+                refreshMedia();
+            }, 30000);
         });
     </script>
 </body>

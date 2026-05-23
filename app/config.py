@@ -39,6 +39,16 @@ class Config:
 
     # Media settings, default to a sample media file path for demo mode
     MEDIA_PATH = os.getenv('MEDIA_PATH', '/home/pi/media.mp4')
+    MEDIA_PLAYER_ENTITY_IDS = [
+        entity.strip()
+        for entity in os.getenv('MEDIA_PLAYER_ENTITY_IDS', '').split(',')
+        if entity.strip()
+    ]
+    SPOTIFY_MEDIA_PLAYER_ENTITY_ID = os.getenv('SPOTIFY_MEDIA_PLAYER_ENTITY_ID', 'media_player.spotify')
+    PLEX_MEDIA_PLAYER_ENTITY_ID = os.getenv('PLEX_MEDIA_PLAYER_ENTITY_ID', '')
+    SPOTIFY_DEFAULT_SOURCE = os.getenv('SPOTIFY_DEFAULT_SOURCE', '')
+    SPOTIFY_PARTY_PLAYLIST_URI = os.getenv('SPOTIFY_PARTY_PLAYLIST_URI', '')
+    SPOTIFY_AMBIENT_PLAYLIST_URI = os.getenv('SPOTIFY_AMBIENT_PLAYLIST_URI', '')
 
     # Flask settings
     FLASK_ENV = os.getenv('FLASK_ENV', 'development')

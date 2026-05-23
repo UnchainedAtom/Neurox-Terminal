@@ -243,9 +243,15 @@ h2 {
 
 .menu-list,
 .entity-list,
-.protocol-grid {
+.protocol-grid,
+.preset-grid {
     display: grid;
     gap: 12px;
+}
+
+.preset-grid {
+    grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+    margin-bottom: 14px;
 }
 
 .menu-command {
@@ -307,9 +313,20 @@ h2 {
     gap: 8px;
 }
 
+.media-actions {
+    grid-template-columns: repeat(2, minmax(120px, 1fr));
+}
+
 .entity-actions button {
     padding: 10px 14px;
     text-align: center;
+}
+
+.preset-command {
+    padding: 12px 16px;
+    color: var(--amber);
+    text-align: center;
+    text-shadow: 0 0 10px rgba(255, 189, 117, 0.72);
 }
 
 .protocol {
