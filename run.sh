@@ -9,21 +9,22 @@ cd "$SCRIPT_DIR"
 
 # Virtual environment path
 VENV_DIR="neuroxnodeTerminal-venv"
+VENV_PYTHON="$VENV_DIR/bin/python"
 
-# Check if virtual environment exists
-if [ ! -d "$VENV_DIR" ]; then
+# Check if virtual environment exists and is usable
+if [ ! -x "$VENV_PYTHON" ]; then
+    if [ -d "$VENV_DIR" ]; then
+        echo "Existing virtual environment is not usable. Recreating..."
+        rm -rf "$VENV_DIR"
+    fi
     echo "Creating virtual environment..."
     python3 -m venv "$VENV_DIR"
 fi
 
-# Activate virtual environment
-echo "Activating virtual environment..."
-source "$VENV_DIR/bin/activate"
-
 # Install/update dependencies
 echo "Installing dependencies..."
-pip install --upgrade pip
-pip install -r requirements.txt
+"$VENV_PYTHON" -m pip install --upgrade pip
+"$VENV_PYTHON" -m pip install -r requirements.txt
 
 # Check for .env file
 if [ ! -f ".env" ]; then
@@ -39,4 +40,4 @@ fi
 
 # Start the application
 echo "Starting Neurox Terminal API..."
-python neuronodeTerminal_api.py
+"$VENV_PYTHON" neuronodeTerminal_api.py
