@@ -145,6 +145,7 @@ SCENE_ENERGIZE=scene.home_energize
 SCENE_CLUB=scene.home_club
 SCENE_MATRIX=scene.home_matrix
 SCENE_NOSTROMO_ALARM=scene.home_nostromo_alarm
+SCENE_BLACKOUT=scene.blackout
 SCENE_RELAX=scene.home_relax
 HUE_DYNAMIC_SCENES=True
 SCENE_CLUB_SPOTIFY_URI=spotify:playlist:your_playlist_id
@@ -200,6 +201,7 @@ SCENE_ENERGIZE=scene.home_energize
 SCENE_CLUB=scene.home_club
 SCENE_MATRIX=scene.home_matrix
 SCENE_NOSTROMO_ALARM=scene.home_nostromo_alarm
+SCENE_BLACKOUT=scene.blackout
 SCENE_RELAX=scene.home_relax
 HUE_DYNAMIC_SCENES=True
 ```

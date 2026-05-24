@@ -16,6 +16,7 @@ SCENE_LABELS = {
     "club": "Club",
     "matrix": "Matrix",
     "nostromo_alarm": "Nostromo Alarm",
+    "blackout": "Blackout",
     "relax": "Relax",
 }
 

@@ -55,6 +55,7 @@ class Config:
         "club": os.getenv('SCENE_CLUB', os.getenv('SCENE_PARTY_MODE', 'scene.home_club')),
         "matrix": os.getenv('SCENE_MATRIX', os.getenv('SCENE_MATRIX_GREEN', 'scene.home_matrix')),
         "nostromo_alarm": os.getenv('SCENE_NOSTROMO_ALARM', os.getenv('SCENE_RED_ALERT', 'scene.home_nostromo_alarm')),
+        "blackout": os.getenv('SCENE_BLACKOUT', 'scene.blackout'),
         "relax": os.getenv('SCENE_RELAX', os.getenv('SCENE_NORMAL', 'scene.home_relax')),
     }
     SCENE_SPOTIFY_URIS = {
@@ -64,6 +65,7 @@ class Config:
         "club": os.getenv('SCENE_CLUB_SPOTIFY_URI', ''),
         "matrix": os.getenv('SCENE_MATRIX_SPOTIFY_URI', ''),
         "nostromo_alarm": os.getenv('SCENE_NOSTROMO_ALARM_SPOTIFY_URI', ''),
+        "blackout": os.getenv('SCENE_BLACKOUT_SPOTIFY_URI', ''),
         "relax": os.getenv('SCENE_RELAX_SPOTIFY_URI', ''),
     }
     HUE_DYNAMIC_SCENES = _bool_env('HUE_DYNAMIC_SCENES', True)
