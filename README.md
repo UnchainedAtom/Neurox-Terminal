@@ -148,6 +148,7 @@ SCENE_NOSTROMO_ALARM=scene.home_nostromo_alarm
 SCENE_BLACKOUT=scene.blackout
 SCENE_RELAX=scene.home_relax
 HUE_DYNAMIC_SCENES=True
+HUE_DYNAMIC_SCENE_KEYS=home_2077_city,bladerunner_orange,energize,club,matrix,nostromo_alarm,relax
 SCENE_CLUB_SPOTIFY_URI=spotify:playlist:your_playlist_id
 SCENE_MATRIX_SPOTIFY_URI=spotify:playlist:your_playlist_id
 MEDIA_PLAYER_ENTITY_IDS=media_player.spotify,media_player.living_room_tv
@@ -204,6 +205,7 @@ SCENE_NOSTROMO_ALARM=scene.home_nostromo_alarm
 SCENE_BLACKOUT=scene.blackout
 SCENE_RELAX=scene.home_relax
 HUE_DYNAMIC_SCENES=True
+HUE_DYNAMIC_SCENE_KEYS=home_2077_city,bladerunner_orange,energize,club,matrix,nostromo_alarm,relax
 ```
 
 When `HUE_DYNAMIC_SCENES=True`, the terminal activates scenes with `hue.activate_scene`, which supports Hue app dynamic scenes. Optional values can override scene playback:
@@ -215,6 +217,8 @@ HUE_SCENE_TRANSITION=2
 ```
 
 Leave optional Hue values blank to use the scene defaults from the Hue app.
+
+Only scene keys listed in `HUE_DYNAMIC_SCENE_KEYS` use `hue.activate_scene`. Scenes not in that list, such as `blackout`, use Home Assistant's normal `scene.turn_on`.
 
 Scene buttons can also start Spotify playlists after activating the Hue scene:
 

@@ -69,6 +69,15 @@ class Config:
         "relax": os.getenv('SCENE_RELAX_SPOTIFY_URI', ''),
     }
     HUE_DYNAMIC_SCENES = _bool_env('HUE_DYNAMIC_SCENES', True)
+    HUE_DYNAMIC_SCENE_KEYS = _csv_env('HUE_DYNAMIC_SCENE_KEYS') or [
+        "home_2077_city",
+        "bladerunner_orange",
+        "energize",
+        "club",
+        "matrix",
+        "nostromo_alarm",
+        "relax",
+    ]
     HUE_SCENE_BRIGHTNESS = _optional_int_env('HUE_SCENE_BRIGHTNESS')
     HUE_SCENE_SPEED = _optional_float_env('HUE_SCENE_SPEED')
     HUE_SCENE_TRANSITION = _optional_int_env('HUE_SCENE_TRANSITION')

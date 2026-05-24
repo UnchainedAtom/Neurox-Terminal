@@ -298,7 +298,10 @@ def run_scene(scene_key):
             "spotify_uri_configured": bool(spotify_uri),
         }
 
-    result = activate_hue_scene(entity_id) if Config.HUE_DYNAMIC_SCENES else turn_on_scene(entity_id)
+    if _should_use_hue_scene_activation(scene_key):
+        result = activate_hue_scene(entity_id)
+    else:
+        result = turn_on_scene(entity_id)
     if result.get("status") != "success":
         return result
 
@@ -307,6 +310,10 @@ def run_scene(scene_key):
     result["entity_id"] = entity_id
     result["spotify"] = spotify_result
     return result
+
+
+def _should_use_hue_scene_activation(scene_key):
+    return Config.HUE_DYNAMIC_SCENES and scene_key in Config.HUE_DYNAMIC_SCENE_KEYS
 
 
 def _scene_message(scene_key, spotify_started=False, demo=False):
