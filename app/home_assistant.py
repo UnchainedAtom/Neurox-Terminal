@@ -98,3 +98,17 @@ def turn_off_light(entity_id):
 def turn_on_scene(entity_id):
     """Activate a scene entity."""
     return call_service("scene", "turn_on", {"entity_id": entity_id})
+
+
+def activate_hue_scene(entity_id):
+    """Activate a Hue scene with optional dynamic scene options."""
+    payload = {"entity_id": entity_id}
+    if Config.HUE_DYNAMIC_SCENES:
+        payload["dynamic"] = True
+    if Config.HUE_SCENE_BRIGHTNESS is not None:
+        payload["brightness"] = Config.HUE_SCENE_BRIGHTNESS
+    if Config.HUE_SCENE_SPEED is not None:
+        payload["speed"] = Config.HUE_SCENE_SPEED
+    if Config.HUE_SCENE_TRANSITION is not None:
+        payload["transition"] = Config.HUE_SCENE_TRANSITION
+    return call_service("hue", "activate_scene", payload)

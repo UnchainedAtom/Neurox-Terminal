@@ -5,17 +5,18 @@ Supports demo mode for testing without Home Assistant connection.
 import os
 import logging
 from app.config import Config
-from app.home_assistant import get_states, turn_off_light, turn_on_light, turn_on_scene, call_service
+from app.home_assistant import activate_hue_scene, get_states, turn_on_scene, call_service
 
 logger = logging.getLogger(__name__)
 
 SCENE_LABELS = {
-    "party_mode": "Party Mode",
-    "matrix_green": "Matrix Green",
-    "red_alert": "Red Alert",
-    "blackout": "Blackout",
-    "normal": "Normal",
-    "mainframe_breach": "Mainframe Breach",
+    "home_2077_city": "2077 City",
+    "bladerunner_orange": "Bladerunner Orange",
+    "energize": "Clear the Club",
+    "club": "Club",
+    "matrix": "Matrix",
+    "nostromo_alarm": "Nostromo Alarm",
+    "relax": "Relax",
 }
 
 MEDIA_ACTIONS = {
@@ -25,9 +26,44 @@ MEDIA_ACTIONS = {
     "stop": "media_stop",
 }
 
+DEMO_LIGHT_ENTITY_IDS = [
+    "light.art_display",
+    "light.dnd_room",
+    "light.entryway",
+    "light.kitchen_table",
+    "light.laundry_room_entryway",
+    "light.living_room_lamp",
+    "light.living_room_station_lamp",
+    "switch.tp_link_smart_plug_d528_lights1",
+    "switch.tp_link_smart_plug_d528_lights2",
+]
+
+DEMO_BACKYARD_LIGHT_ENTITY_IDS = [
+    "switch.tp_link_smart_plug_d528_lights1",
+    "switch.tp_link_smart_plug_d528_lights2",
+]
+
+
+def _name_from_entity_id(entity_id):
+    return entity_id.split(".", 1)[-1].replace("_", " ").title()
+
+
+def _demo_control_entity(entity_id, state="off"):
+    domain = entity_id.split(".", 1)[0] if "." in entity_id else ""
+    return {
+        "entity_id": entity_id,
+        "name": _name_from_entity_id(entity_id),
+        "state": state,
+        "area": "backyard" if entity_id in DEMO_BACKYARD_LIGHT_ENTITY_IDS else Config.DEFAULT_ROOM,
+        "domain": domain,
+    }
+
 
 def _demo_lighting_dashboard():
     """Return safe demo data for local development without Home Assistant."""
+    light_ids = Config.LIGHT_ENTITY_IDS or DEMO_LIGHT_ENTITY_IDS
+    backyard_ids = Config.BACKYARD_LIGHT_ENTITY_IDS or DEMO_BACKYARD_LIGHT_ENTITY_IDS
+
     return {
         "status": "success",
         "demo": True,
@@ -35,20 +71,8 @@ def _demo_lighting_dashboard():
         "message": "Demo mode active. Home Assistant calls are simulated.",
         "default_room": Config.DEFAULT_ROOM,
         "default_dashboard_mode": Config.DEFAULT_DASHBOARD_MODE,
-        "lights": [
-            {
-                "entity_id": Config.LIGHT_ENTITY_ID,
-                "name": "Overhead Light",
-                "state": "off",
-                "area": Config.DEFAULT_ROOM,
-            },
-            {
-                "entity_id": "light.terminal_backlight",
-                "name": "Terminal Backlight",
-                "state": "on",
-                "area": Config.DEFAULT_ROOM,
-            },
-        ],
+        "lights": [_demo_control_entity(entity_id) for entity_id in light_ids],
+        "backyard_lights": [_demo_control_entity(entity_id) for entity_id in backyard_ids],
         "scenes": _configured_scenes(),
     }
 
@@ -69,21 +93,29 @@ def _friendly_name(state):
     return state.get("attributes", {}).get("friendly_name") or state.get("entity_id")
 
 
-def _filter_entities(states, domain):
-    entities = [
-        {
-            "entity_id": item.get("entity_id"),
-            "name": _friendly_name(item),
-            "state": item.get("state", "unknown"),
-            "area": item.get("attributes", {}).get("area_id", ""),
-        }
-        for item in states
-        if item.get("entity_id", "").startswith(f"{domain}.")
-    ]
+def _entity_summary(item):
+    entity_id = item.get("entity_id", "")
+    domain = entity_id.split(".", 1)[0] if "." in entity_id else ""
+    return {
+        "entity_id": entity_id,
+        "name": _friendly_name(item),
+        "state": item.get("state", "unknown"),
+        "area": item.get("attributes", {}).get("area_id", ""),
+        "domain": domain,
+    }
 
-    if domain == "light" and Config.LIGHT_ENTITY_IDS:
-        allowed = set(Config.LIGHT_ENTITY_IDS)
-        entities = [entity for entity in entities if entity["entity_id"] in allowed]
+
+def _filter_control_entities(states, entity_ids=None):
+    allowed = set(entity_ids or [])
+    entities = []
+    for item in states:
+        entity_id = item.get("entity_id", "")
+        domain = entity_id.split(".", 1)[0] if "." in entity_id else ""
+        if domain not in ("light", "switch"):
+            continue
+        if allowed and entity_id not in allowed:
+            continue
+        entities.append(_entity_summary(item))
 
     return sorted(entities, key=lambda entity: entity["name"].lower())
 
@@ -181,6 +213,7 @@ def get_lighting_dashboard():
             "default_room": Config.DEFAULT_ROOM,
             "default_dashboard_mode": Config.DEFAULT_DASHBOARD_MODE,
             "lights": [],
+            "backyard_lights": [],
             "scenes": _configured_scenes(),
         }
 
@@ -191,7 +224,8 @@ def get_lighting_dashboard():
         "home_assistant_available": True,
         "default_room": Config.DEFAULT_ROOM,
         "default_dashboard_mode": Config.DEFAULT_DASHBOARD_MODE,
-        "lights": _filter_entities(states, "light"),
+        "lights": _filter_control_entities(states, Config.LIGHT_ENTITY_IDS),
+        "backyard_lights": _filter_control_entities(states, Config.BACKYARD_LIGHT_ENTITY_IDS),
         "scenes": _configured_scenes(),
     }
 
@@ -222,7 +256,7 @@ def get_media_dashboard():
 
 
 def set_light(entity_id, action):
-    """Turn a light entity on or off."""
+    """Turn a light or switch entity on or off."""
     if action not in ("turn-on", "turn-off"):
         return {"status": "error", "message": "Unsupported light action."}
 
@@ -234,8 +268,12 @@ def set_light(entity_id, action):
             "message": f"{entity_id} {action.replace('-', ' ')} simulated.",
         }
 
-    service = turn_on_light if action == "turn-on" else turn_off_light
-    result = service(entity_id)
+    domain = entity_id.split(".", 1)[0] if "." in entity_id else "light"
+    if domain not in ("light", "switch"):
+        return {"status": "error", "message": f"Unsupported lighting domain: {domain}"}
+
+    service = "turn_on" if action == "turn-on" else "turn_off"
+    result = call_service(domain, service, {"entity_id": entity_id})
     if result.get("status") == "success":
         result["message"] = f"{entity_id} {action.replace('-', ' ')} sent."
     return result
@@ -247,19 +285,58 @@ def run_scene(scene_key):
     if not entity_id:
         return {"status": "error", "message": f"Unknown scene key: {scene_key}"}
 
+    spotify_uri = Config.SCENE_SPOTIFY_URIS.get(scene_key, "")
+
     if Config.DEMO_MODE:
         logger.info("DEMO MODE: scene %s activated as %s", scene_key, entity_id)
         return {
             "status": "success",
             "demo": True,
-            "message": f"{SCENE_LABELS.get(scene_key, scene_key)} simulated.",
+            "message": _scene_message(scene_key, bool(spotify_uri), demo=True),
             "entity_id": entity_id,
+            "spotify_uri_configured": bool(spotify_uri),
         }
 
-    result = turn_on_scene(entity_id)
+    result = activate_hue_scene(entity_id) if Config.HUE_DYNAMIC_SCENES else turn_on_scene(entity_id)
+    if result.get("status") != "success":
+        return result
+
+    spotify_result = _run_scene_spotify(spotify_uri)
+    result["message"] = _scene_message(scene_key, spotify_result.get("status") == "success")
+    result["entity_id"] = entity_id
+    result["spotify"] = spotify_result
+    return result
+
+
+def _scene_message(scene_key, spotify_started=False, demo=False):
+    label = SCENE_LABELS.get(scene_key, scene_key)
+    suffix = " simulated" if demo else " activated"
+    if spotify_started:
+        suffix += " with Spotify playlist"
+    return f"{label}{suffix}."
+
+
+def _run_scene_spotify(spotify_uri):
+    """Start a Spotify playlist for a scene when configured."""
+    if not spotify_uri:
+        return {"status": "skipped", "message": "No Spotify playlist configured for this scene."}
+
+    if Config.SPOTIFY_DEFAULT_SOURCE:
+        source_result = select_media_source(Config.SPOTIFY_MEDIA_PLAYER_ENTITY_ID, Config.SPOTIFY_DEFAULT_SOURCE)
+        if source_result.get("status") != "success":
+            return source_result
+
+    result = call_service(
+        "media_player",
+        "play_media",
+        {
+            "entity_id": Config.SPOTIFY_MEDIA_PLAYER_ENTITY_ID,
+            "media_content_id": spotify_uri,
+            "media_content_type": "playlist",
+        },
+    )
     if result.get("status") == "success":
-        result["message"] = f"{SCENE_LABELS.get(scene_key, scene_key)} activated."
-        result["entity_id"] = entity_id
+        result["message"] = "Scene Spotify playlist started."
     return result
 
 

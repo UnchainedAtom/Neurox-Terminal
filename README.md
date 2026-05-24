@@ -137,13 +137,18 @@ DEMO_MODE=False
 HOME_ASSISTANT_URL=http://your-homeassistant:8123
 HOME_ASSISTANT_TOKEN=your_long_lived_access_token
 LIGHT_ENTITY_ID=light.your_default_light
-LIGHT_ENTITY_IDS=light.living_room,light.office_lamp
-SCENE_PARTY_MODE=scene.party_mode
-SCENE_MATRIX_GREEN=scene.matrix_green
-SCENE_RED_ALERT=scene.red_alert
-SCENE_BLACKOUT=scene.blackout
-SCENE_NORMAL=scene.normal
-SCENE_MAINFRAME_BREACH=scene.red_alert
+LIGHT_ENTITY_IDS=light.art_display,light.dnd_room,light.entryway,light.kitchen_table,light.laundry_room_entryway,light.living_room_lamp,light.living_room_station_lamp,switch.tp_link_smart_plug_d528_lights1,switch.tp_link_smart_plug_d528_lights2
+BACKYARD_LIGHT_ENTITY_IDS=switch.tp_link_smart_plug_d528_lights1,switch.tp_link_smart_plug_d528_lights2
+SCENE_HOME_2077_CITY=scene.home_2077_city
+SCENE_BLADERUNNER_ORANGE=scene.home_bladerunner_orange
+SCENE_ENERGIZE=scene.home_energize
+SCENE_CLUB=scene.home_club
+SCENE_MATRIX=scene.home_matrix
+SCENE_NOSTROMO_ALARM=scene.home_nostromo_alarm
+SCENE_RELAX=scene.home_relax
+HUE_DYNAMIC_SCENES=True
+SCENE_CLUB_SPOTIFY_URI=spotify:playlist:your_playlist_id
+SCENE_MATRIX_SPOTIFY_URI=spotify:playlist:your_playlist_id
 MEDIA_PLAYER_ENTITY_IDS=media_player.spotify,media_player.living_room_tv
 SPOTIFY_MEDIA_PLAYER_ENTITY_ID=media_player.spotify
 PLEX_MEDIA_PLAYER_ENTITY_ID=media_player.living_room_tv
@@ -177,21 +182,50 @@ The token is shown once. If you lose it, delete it and create a new one.
 
 The app discovers lights from Home Assistant via `/api/states`.
 
-Use `LIGHT_ENTITY_IDS` when you want the terminal to show only a curated list:
+Use `LIGHT_ENTITY_IDS` when you want the terminal to show only a curated list. This list can include both `light.*` and `switch.*` entities:
 
 ```env
-LIGHT_ENTITY_IDS=light.living_room,light.office_lamp,light.hallway
+LIGHT_ENTITY_IDS=light.art_display,light.dnd_room,switch.tp_link_smart_plug_d528_lights1
+BACKYARD_LIGHT_ENTITY_IDS=switch.tp_link_smart_plug_d528_lights1,switch.tp_link_smart_plug_d528_lights2
 ```
 
-Leave it blank to show every Home Assistant light entity.
+Leave `LIGHT_ENTITY_IDS` blank to show every Home Assistant light/switch entity. Use `BACKYARD_LIGHT_ENTITY_IDS` to pull outdoor switches into a separate terminal section.
 
-Scene buttons are configured by entity ID:
+Scene buttons are configured by Hue scene entity ID:
 
 ```env
-SCENE_RED_ALERT=scene.red_alert
-SCENE_BLACKOUT=scene.blackout
-SCENE_NORMAL=scene.normal
+SCENE_HOME_2077_CITY=scene.home_2077_city
+SCENE_BLADERUNNER_ORANGE=scene.home_bladerunner_orange
+SCENE_ENERGIZE=scene.home_energize
+SCENE_CLUB=scene.home_club
+SCENE_MATRIX=scene.home_matrix
+SCENE_NOSTROMO_ALARM=scene.home_nostromo_alarm
+SCENE_RELAX=scene.home_relax
+HUE_DYNAMIC_SCENES=True
 ```
+
+When `HUE_DYNAMIC_SCENES=True`, the terminal activates scenes with `hue.activate_scene`, which supports Hue app dynamic scenes. Optional values can override scene playback:
+
+```env
+HUE_SCENE_BRIGHTNESS=200
+HUE_SCENE_SPEED=0.7
+HUE_SCENE_TRANSITION=2
+```
+
+Leave optional Hue values blank to use the scene defaults from the Hue app.
+
+Scene buttons can also start Spotify playlists after activating the Hue scene:
+
+```env
+SPOTIFY_MEDIA_PLAYER_ENTITY_ID=media_player.spotify
+SPOTIFY_DEFAULT_SOURCE=Living Room Speaker
+SCENE_CLUB_SPOTIFY_URI=spotify:playlist:your_playlist_id
+SCENE_MATRIX_SPOTIFY_URI=spotify:playlist:your_playlist_id
+SCENE_NOSTROMO_ALARM_SPOTIFY_URI=spotify:playlist:your_playlist_id
+SCENE_RELAX_SPOTIFY_URI=spotify:playlist:your_playlist_id
+```
+
+If `SPOTIFY_DEFAULT_SOURCE` is set, the terminal selects that source before starting the playlist. Leave a scene Spotify URI blank when that scene should only change lighting.
 
 ### Spotify / Plex Media Relay
 

@@ -41,12 +41,16 @@
                 <div class="screen-heading">
                     <div>
                         <p class="eyebrow">LIGHTING CONTROL</p>
-                        <h2>Available Lights</h2>
+                        <h2>All Lights</h2>
                     </div>
                     <button class="back-command" data-screen="menu">Back</button>
                 </div>
                 <div id="lights-list" class="entity-list">
                     <p class="empty-state">Scanning Home Assistant lighting grid...</p>
+                </div>
+                <h3 class="subsection-title">Backyard Lights</h3>
+                <div id="backyard-lights-list" class="entity-list">
+                    <p class="empty-state">Scanning backyard circuit...</p>
                 </div>
             </section>
 
@@ -58,12 +62,8 @@
                     </div>
                     <button class="back-command" data-screen="menu">Back</button>
                 </div>
-                <div class="protocol-grid">
-                    <button class="protocol danger" data-scene="red_alert">Red Alert</button>
-                    <button class="protocol danger" data-scene="mainframe_breach">Mainframe Breach</button>
-                    <button class="protocol blackout" data-scene="blackout">Blackout Protocol</button>
-                    <button class="protocol matrix" data-scene="matrix_green">Matrix Mode</button>
-                    <button class="protocol restore" data-scene="normal">Restore Normal Lighting</button>
+                <div class="protocol-grid" id="scene-list">
+                    <p class="empty-state">Scanning Hue scenes...</p>
                 </div>
             </section>
 
@@ -107,15 +107,7 @@
         const screens = document.querySelectorAll('.screen');
         const terminalPath = document.getElementById('terminal-path');
         const logContainer = document.getElementById('activity-log');
-        const sceneLabels = {
-            red_alert: 'RED ALERT',
-            mainframe_breach: 'MAINFRAME BREACH',
-            blackout: 'BLACKOUT PROTOCOL',
-            matrix_green: 'MATRIX MODE',
-            normal: 'RESTORE NORMAL LIGHTING',
-        };
-
-        let lightingData = { lights: [], scenes: [] };
+        let lightingData = { lights: [], backyard_lights: [], scenes: [] };
         let mediaData = { media_players: [], presets: [] };
 
         function addLog(message, type = 'info') {
@@ -162,24 +154,60 @@
             }[char]));
         }
 
-        function renderLights() {
-            const list = document.getElementById('lights-list');
-            if (!lightingData.lights || lightingData.lights.length === 0) {
-                list.innerHTML = '<p class="empty-state">No lights detected. Configure Home Assistant or LIGHT_ENTITY_IDS.</p>';
+        function renderEntityControls(targetId, entities, emptyMessage) {
+            const list = document.getElementById(targetId);
+            if (!entities || entities.length === 0) {
+                list.innerHTML = `<p class="empty-state">${escapeHtml(emptyMessage)}</p>`;
                 return;
             }
 
-            list.innerHTML = lightingData.lights.map((light) => `
+            list.innerHTML = entities.map((entity) => `
                 <article class="entity-row">
                     <div>
-                        <strong>${escapeHtml(formatName(light))}</strong>
-                        <span>${escapeHtml(light.entity_id)} // ${escapeHtml(light.state || 'unknown')}</span>
+                        <strong>${escapeHtml(formatName(entity))}</strong>
+                        <span>${escapeHtml(entity.entity_id)} // ${escapeHtml(entity.state || 'unknown')}</span>
                     </div>
                     <div class="entity-actions">
-                        <button data-light="${escapeHtml(light.entity_id)}" data-action="turn-on">On</button>
-                        <button data-light="${escapeHtml(light.entity_id)}" data-action="turn-off">Off</button>
+                        <button data-light="${escapeHtml(entity.entity_id)}" data-action="turn-on">On</button>
+                        <button data-light="${escapeHtml(entity.entity_id)}" data-action="turn-off">Off</button>
                     </div>
                 </article>
+            `).join('');
+        }
+
+        function renderLights() {
+            renderEntityControls(
+                'lights-list',
+                lightingData.lights,
+                'No interior lights detected. Configure Home Assistant or LIGHT_ENTITY_IDS.'
+            );
+            renderEntityControls(
+                'backyard-lights-list',
+                lightingData.backyard_lights,
+                'No backyard lights detected. Configure BACKYARD_LIGHT_ENTITY_IDS.'
+            );
+            renderScenes();
+        }
+
+        function protocolClass(scene) {
+            const key = scene.key || '';
+            if (key.includes('alarm') || key.includes('2077')) return 'danger';
+            if (key.includes('matrix')) return 'matrix';
+            if (key.includes('relax') || key.includes('energize')) return 'restore';
+            return '';
+        }
+
+        function renderScenes() {
+            const list = document.getElementById('scene-list');
+            if (!lightingData.scenes || lightingData.scenes.length === 0) {
+                list.innerHTML = '<p class="empty-state">No Hue scenes configured.</p>';
+                return;
+            }
+
+            list.innerHTML = lightingData.scenes.map((scene) => `
+                <button class="protocol ${protocolClass(scene)}" data-scene="${escapeHtml(scene.key)}">
+                    ${escapeHtml(scene.label)}
+                </button>
             `).join('');
         }
 
@@ -303,7 +331,7 @@
             const sceneButton = event.target.closest('[data-scene]');
             if (sceneButton) {
                 const sceneKey = sceneButton.dataset.scene;
-                postCommand(`${API_BASE}/api/scenes/${sceneKey}`, sceneLabels[sceneKey] || sceneKey, sceneButton);
+                postCommand(`${API_BASE}/api/scenes/${sceneKey}`, sceneButton.textContent.trim(), sceneButton);
                 return;
             }
 

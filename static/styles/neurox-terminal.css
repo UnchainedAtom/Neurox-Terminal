@@ -175,7 +175,8 @@ button:disabled {
 }
 
 h1,
-h2 {
+h2,
+h3 {
     margin: 0;
     color: var(--text);
     line-height: 1;
@@ -192,6 +193,14 @@ h2 {
     font-family: "Linebeam", "Sevastopol", monospace;
     font-size: clamp(26px, 4vw, 48px);
     text-shadow: 0 0 18px rgba(245, 247, 248, 0.88);
+}
+
+h3.subsection-title {
+    margin: 22px 0 12px;
+    color: var(--amber);
+    font-family: "GlassTTY", "Terminus", monospace;
+    font-size: clamp(18px, 2.4vw, 28px);
+    text-shadow: 0 0 10px rgba(255, 189, 117, 0.72);
 }
 
 .status-strip {
