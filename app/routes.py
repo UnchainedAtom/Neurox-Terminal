@@ -13,7 +13,10 @@ from app.controller import (
     run_scene,
     select_media_source,
     set_light,
+    set_light_brightness,
+    set_light_preset,
     set_media_action,
+    set_room_lights,
     toggle_lights,
 )
 
@@ -36,7 +39,10 @@ except ValueError as e:
 @app.route("/")
 def index():
     """Serve the main dashboard UI."""
-    return render_template('dashboard.html')
+    return render_template(
+        'dashboard.html',
+        screensaver_config=Config.screensaver_public_config(),
+    )
 
 
 @app.route("/api/")
@@ -62,6 +68,10 @@ def api_status():
             "/api/lighting",
             "/api/lights/<entity_id>/turn-on",
             "/api/lights/<entity_id>/turn-off",
+            "/api/lights/<entity_id>/brightness",
+            "/api/lights/<entity_id>/preset",
+            "/api/rooms/<room_key>/turn-on",
+            "/api/rooms/<room_key>/turn-off",
             "/api/scenes/<scene_key>",
             "/api/media",
             "/api/media/<entity_id>/<action>",
@@ -97,6 +107,44 @@ def api_light_turn_off(entity_id):
     """Turn off a Home Assistant light entity."""
     logger.info("Light turn off request received: %s", entity_id)
     result = set_light(entity_id, "turn-off")
+    status_code = 200 if result.get("status") == "success" else 500
+    return jsonify(result), status_code
+
+
+@app.route("/api/lights/<path:entity_id>/brightness", methods=["POST"])
+def api_light_brightness(entity_id):
+    """Set brightness percentage for a Home Assistant light entity."""
+    logger.info("Light brightness request received: %s", entity_id)
+    payload = request.get_json(silent=True) or {}
+    result = set_light_brightness(entity_id, payload.get("brightness_pct"))
+    status_code = 200 if result.get("status") == "success" else 500
+    return jsonify(result), status_code
+
+
+@app.route("/api/lights/<path:entity_id>/preset", methods=["POST"])
+def api_light_preset(entity_id):
+    """Apply a named brightness/color preset to a light entity."""
+    logger.info("Light preset request received: %s", entity_id)
+    payload = request.get_json(silent=True) or {}
+    result = set_light_preset(entity_id, payload.get("preset"))
+    status_code = 200 if result.get("status") == "success" else 500
+    return jsonify(result), status_code
+
+
+@app.route("/api/rooms/<room_key>/turn-on", methods=["POST"])
+def api_room_turn_on(room_key):
+    """Turn on all entities in a configured room."""
+    logger.info("Room turn on request received: %s", room_key)
+    result = set_room_lights(room_key, "turn-on")
+    status_code = 200 if result.get("status") == "success" else 500
+    return jsonify(result), status_code
+
+
+@app.route("/api/rooms/<room_key>/turn-off", methods=["POST"])
+def api_room_turn_off(room_key):
+    """Turn off all entities in a configured room."""
+    logger.info("Room turn off request received: %s", room_key)
+    result = set_room_lights(room_key, "turn-off")
     status_code = 200 if result.get("status") == "success" else 500
     return jsonify(result), status_code
 

@@ -44,6 +44,17 @@ DEMO_BACKYARD_LIGHT_ENTITY_IDS = [
     "switch.tp_link_smart_plug_d528_lights2",
 ]
 
+LIGHT_PRESETS = {
+    "warm": {"label": "Warm", "payload": {"color_temp_kelvin": 2700, "brightness_pct": 70}},
+    "cool": {"label": "Cool", "payload": {"color_temp_kelvin": 5000, "brightness_pct": 80}},
+    "red": {"label": "Red", "payload": {"rgb_color": [255, 0, 0], "brightness_pct": 75}},
+    "green": {"label": "Green", "payload": {"rgb_color": [0, 255, 90], "brightness_pct": 75}},
+    "blue": {"label": "Blue", "payload": {"rgb_color": [60, 120, 255], "brightness_pct": 75}},
+    "amber": {"label": "Amber", "payload": {"rgb_color": [255, 148, 40], "brightness_pct": 70}},
+    "dim": {"label": "Dim", "payload": {"brightness_pct": 25}},
+    "bright": {"label": "Bright", "payload": {"brightness_pct": 100}},
+}
+
 
 def _name_from_entity_id(entity_id):
     return entity_id.split(".", 1)[-1].replace("_", " ").title()
@@ -57,6 +68,9 @@ def _demo_control_entity(entity_id, state="off"):
         "state": state,
         "area": "backyard" if entity_id in DEMO_BACKYARD_LIGHT_ENTITY_IDS else Config.DEFAULT_ROOM,
         "domain": domain,
+        "supports_brightness": domain == "light",
+        "supports_color": domain == "light",
+        "brightness_pct": 65 if domain == "light" else None,
     }
 
 
@@ -74,6 +88,8 @@ def _demo_lighting_dashboard():
         "default_dashboard_mode": Config.DEFAULT_DASHBOARD_MODE,
         "lights": [_demo_control_entity(entity_id) for entity_id in light_ids],
         "backyard_lights": [_demo_control_entity(entity_id) for entity_id in backyard_ids],
+        "rooms": _configured_rooms(None),
+        "presets": _light_presets(),
         "scenes": _configured_scenes(),
     }
 
@@ -90,35 +106,103 @@ def _configured_scenes():
     ]
 
 
+def _light_presets():
+    return [
+        {"key": key, "label": preset["label"]}
+        for key, preset in LIGHT_PRESETS.items()
+    ]
+
+
 def _friendly_name(state):
     return state.get("attributes", {}).get("friendly_name") or state.get("entity_id")
+
+
+def _brightness_pct(attributes):
+    brightness = attributes.get("brightness")
+    if brightness is None:
+        return None
+    try:
+        return round((int(brightness) / 255) * 100)
+    except (TypeError, ValueError):
+        return None
 
 
 def _entity_summary(item):
     entity_id = item.get("entity_id", "")
     domain = entity_id.split(".", 1)[0] if "." in entity_id else ""
+    attributes = item.get("attributes", {})
+    supported_modes = attributes.get("supported_color_modes") or []
     return {
         "entity_id": entity_id,
         "name": _friendly_name(item),
         "state": item.get("state", "unknown"),
-        "area": item.get("attributes", {}).get("area_id", ""),
+        "area": attributes.get("area_id", ""),
         "domain": domain,
+        "supports_brightness": domain == "light",
+        "supports_color": domain == "light" and bool(
+            set(supported_modes).intersection({"rgb", "hs", "xy", "color_temp"})
+            or attributes.get("rgb_color")
+            or attributes.get("color_temp_kelvin")
+        ),
+        "brightness_pct": _brightness_pct(attributes),
     }
+
+
+def _control_entities_from_states(states):
+    entities = {}
+    for item in states:
+        entity_id = item.get("entity_id", "")
+        domain = entity_id.split(".", 1)[0] if "." in entity_id else ""
+        if domain in ("light", "switch"):
+            entities[entity_id] = _entity_summary(item)
+    return entities
 
 
 def _filter_control_entities(states, entity_ids=None):
     allowed = set(entity_ids or [])
     entities = []
-    for item in states:
-        entity_id = item.get("entity_id", "")
-        domain = entity_id.split(".", 1)[0] if "." in entity_id else ""
-        if domain not in ("light", "switch"):
-            continue
-        if allowed and entity_id not in allowed:
-            continue
-        entities.append(_entity_summary(item))
+    control_entities = _control_entities_from_states(states)
+    if allowed:
+        entities = [
+            control_entities[entity_id]
+            for entity_id in entity_ids
+            if entity_id in control_entities
+        ]
+    else:
+        entities = list(control_entities.values())
 
     return sorted(entities, key=lambda entity: entity["name"].lower())
+
+
+def _configured_rooms(states):
+    configured = Config.room_groups()
+    state_entities = _control_entities_from_states(states or []) if states is not None else {}
+    rooms = []
+
+    for room_key in Config.ROOM_ORDER:
+        room = configured.get(room_key)
+        if not room:
+            continue
+
+        entities = []
+        for entity_id in room["entity_ids"]:
+            entities.append(state_entities.get(entity_id) or _demo_control_entity(entity_id))
+
+        rooms.append({
+            "key": room_key,
+            "label": room["label"],
+            "entity_ids": room["entity_ids"],
+            "entities": entities,
+        })
+
+    return rooms
+
+
+def _room_entity_ids(room_key):
+    room = Config.room_groups().get(room_key)
+    if not room:
+        return []
+    return room["entity_ids"]
 
 
 def _filter_media_players(states):
@@ -215,6 +299,8 @@ def get_lighting_dashboard():
             "default_dashboard_mode": Config.DEFAULT_DASHBOARD_MODE,
             "lights": [],
             "backyard_lights": [],
+            "rooms": _configured_rooms(None),
+            "presets": _light_presets(),
             "scenes": _configured_scenes(),
         }
 
@@ -227,6 +313,8 @@ def get_lighting_dashboard():
         "default_dashboard_mode": Config.DEFAULT_DASHBOARD_MODE,
         "lights": _filter_control_entities(states, Config.LIGHT_ENTITY_IDS),
         "backyard_lights": _filter_control_entities(states, Config.BACKYARD_LIGHT_ENTITY_IDS),
+        "rooms": _configured_rooms(states),
+        "presets": _light_presets(),
         "scenes": _configured_scenes(),
     }
 
@@ -277,6 +365,103 @@ def set_light(entity_id, action):
     result = call_service(domain, service, {"entity_id": entity_id})
     if result.get("status") == "success":
         result["message"] = f"{entity_id} {action.replace('-', ' ')} sent."
+    return result
+
+
+def set_room_lights(room_key, action):
+    """Turn every light/switch in a configured room on or off."""
+    if action not in ("turn-on", "turn-off"):
+        return {"status": "error", "message": "Unsupported room action."}
+
+    entity_ids = _room_entity_ids(room_key)
+    if not entity_ids:
+        return {"status": "error", "message": f"Unknown room: {room_key}"}
+
+    if Config.DEMO_MODE:
+        logger.info("DEMO MODE: room %s %s", room_key, action)
+        return {
+            "status": "success",
+            "demo": True,
+            "message": f"{room_key.replace('_', ' ').title()} {action.replace('-', ' ')} simulated.",
+            "entity_ids": entity_ids,
+        }
+
+    failures = []
+    service = "turn_on" if action == "turn-on" else "turn_off"
+    for entity_id in entity_ids:
+        domain = entity_id.split(".", 1)[0] if "." in entity_id else "light"
+        if domain not in ("light", "switch"):
+            failures.append({"entity_id": entity_id, "message": f"Unsupported domain: {domain}"})
+            continue
+        result = call_service(domain, service, {"entity_id": entity_id})
+        if result.get("status") != "success":
+            failures.append({"entity_id": entity_id, "message": result.get("message", "Command failed.")})
+
+    if failures:
+        return {
+            "status": "error",
+            "message": f"{len(failures)} room command(s) failed.",
+            "failures": failures,
+        }
+
+    return {
+        "status": "success",
+        "message": f"{room_key.replace('_', ' ').title()} {action.replace('-', ' ')} sent.",
+        "entity_ids": entity_ids,
+    }
+
+
+def set_light_brightness(entity_id, brightness_pct):
+    """Set brightness on a light entity through Home Assistant."""
+    domain = entity_id.split(".", 1)[0] if "." in entity_id else ""
+    if domain != "light":
+        return {"status": "error", "message": "Brightness is only supported for light entities."}
+
+    try:
+        brightness = max(1, min(100, int(brightness_pct)))
+    except (TypeError, ValueError):
+        return {"status": "error", "message": "brightness_pct must be a number from 1 to 100."}
+
+    if Config.DEMO_MODE:
+        logger.info("DEMO MODE: brightness %s set to %s", entity_id, brightness)
+        return {
+            "status": "success",
+            "demo": True,
+            "message": f"{entity_id} brightness set to {brightness}% simulated.",
+            "brightness_pct": brightness,
+        }
+
+    result = call_service("light", "turn_on", {"entity_id": entity_id, "brightness_pct": brightness})
+    if result.get("status") == "success":
+        result["message"] = f"{entity_id} brightness set to {brightness}%."
+        result["brightness_pct"] = brightness
+    return result
+
+
+def set_light_preset(entity_id, preset_key):
+    """Apply a named brightness/color preset to a light entity."""
+    domain = entity_id.split(".", 1)[0] if "." in entity_id else ""
+    if domain != "light":
+        return {"status": "error", "message": "Color presets are only supported for light entities."}
+
+    preset = LIGHT_PRESETS.get(preset_key)
+    if not preset:
+        return {"status": "error", "message": f"Unknown light preset: {preset_key}"}
+
+    payload = {"entity_id": entity_id, **preset["payload"]}
+
+    if Config.DEMO_MODE:
+        logger.info("DEMO MODE: preset %s applied to %s", preset_key, entity_id)
+        return {
+            "status": "success",
+            "demo": True,
+            "message": f"{preset['label']} preset simulated for {entity_id}.",
+            "payload": payload,
+        }
+
+    result = call_service("light", "turn_on", payload)
+    if result.get("status") == "success":
+        result["message"] = f"{preset['label']} preset applied to {entity_id}."
     return result
 
 

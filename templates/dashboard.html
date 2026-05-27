@@ -41,16 +41,29 @@
                 <div class="screen-heading">
                     <div>
                         <p class="eyebrow">LIGHTING CONTROL</p>
-                        <h2>All Lights</h2>
+                        <h2>Room Select</h2>
                     </div>
                     <button class="back-command" data-screen="menu">Back</button>
                 </div>
-                <div id="lights-list" class="entity-list">
-                    <p class="empty-state">Scanning Home Assistant lighting grid...</p>
+                <div id="room-list" class="room-list">
+                    <p class="empty-state">Scanning configured room groups...</p>
                 </div>
-                <h3 class="subsection-title">Backyard Lights</h3>
-                <div id="backyard-lights-list" class="entity-list">
-                    <p class="empty-state">Scanning backyard circuit...</p>
+            </section>
+
+            <section class="screen" id="screen-room">
+                <div class="screen-heading">
+                    <div>
+                        <p class="eyebrow">ROOM CONTROL</p>
+                        <h2 id="room-title">Room</h2>
+                    </div>
+                    <button class="back-command" data-screen="lighting">Back</button>
+                </div>
+                <div class="room-actions">
+                    <button data-room-action="turn-on">All On</button>
+                    <button data-room-action="turn-off">All Off</button>
+                </div>
+                <div id="room-entities" class="entity-list room-entities">
+                    <p class="empty-state">Select a room.</p>
                 </div>
             </section>
 
@@ -102,13 +115,33 @@
         </section>
     </main>
 
+    <section id="screensaver" class="screensaver" aria-hidden="true">
+        <canvas id="screensaver-matrix"></canvas>
+        <div class="screensaver-diagnostics">
+            <p>NEUROXNODE IDLE DIAGNOSTICS</p>
+            <p id="screensaver-clock">--:--:--</p>
+            <p>LOCAL CONTROL BUS // STANDBY</p>
+        </div>
+        <img id="screensaver-brain" class="screensaver-brain" src="{{ url_for('static', filename='images/midBrain.gif') }}" alt="">
+        <img id="screensaver-image" class="screensaver-image" alt="">
+    </section>
+
     <script>
         const API_BASE = window.location.origin;
+        const SCREENSAVER_CONFIG = {{ screensaver_config|tojson }};
         const screens = document.querySelectorAll('.screen');
         const terminalPath = document.getElementById('terminal-path');
         const logContainer = document.getElementById('activity-log');
-        let lightingData = { lights: [], backyard_lights: [], scenes: [] };
+        let lightingData = { lights: [], backyard_lights: [], rooms: [], scenes: [], presets: [] };
         let mediaData = { media_players: [], presets: [] };
+        let currentRoomKey = '';
+        let activeScreen = 'menu';
+        let screensaverTimer = null;
+        let screensaverActive = false;
+        let screensaverModeIndex = 0;
+        let screensaverModeTimer = null;
+        let matrixTimer = null;
+        let lastGamepadButtons = '';
 
         function addLog(message, type = 'info') {
             const timestamp = new Date().toLocaleTimeString();
@@ -124,6 +157,7 @@
                 screen.classList.toggle('active', screen.id === `screen-${name}`);
             });
             terminalPath.textContent = name === 'menu' ? 'MAIN MENU' : name.toUpperCase();
+            activeScreen = name;
             const firstButton = document.querySelector(`#screen-${name} button`);
             if (firstButton) {
                 firstButton.focus();
@@ -154,38 +188,90 @@
             }[char]));
         }
 
-        function renderEntityControls(targetId, entities, emptyMessage) {
-            const list = document.getElementById(targetId);
-            if (!entities || entities.length === 0) {
-                list.innerHTML = `<p class="empty-state">${escapeHtml(emptyMessage)}</p>`;
+        function roomByKey(roomKey) {
+            return (lightingData.rooms || []).find((room) => room.key === roomKey);
+        }
+
+        function renderRooms() {
+            const list = document.getElementById('room-list');
+            if (!lightingData.rooms || lightingData.rooms.length === 0) {
+                list.innerHTML = '<p class="empty-state">No room groups configured. Set ROOM_ORDER and ROOM_*_ENTITIES.</p>';
                 return;
             }
 
-            list.innerHTML = entities.map((entity) => `
-                <article class="entity-row">
+            list.innerHTML = lightingData.rooms.map((room, index) => `
+                <button class="room-command" data-room="${escapeHtml(room.key)}">
                     <div>
-                        <strong>${escapeHtml(formatName(entity))}</strong>
-                        <span>${escapeHtml(entity.entity_id)} // ${escapeHtml(entity.state || 'unknown')}</span>
+                        <strong>${String(index + 1).padStart(2, '0')} // ${escapeHtml(room.label)}</strong>
+                        <span>${escapeHtml((room.entities || []).length)} configured node(s)</span>
                     </div>
-                    <div class="entity-actions">
-                        <button data-light="${escapeHtml(entity.entity_id)}" data-action="turn-on">On</button>
-                        <button data-light="${escapeHtml(entity.entity_id)}" data-action="turn-off">Off</button>
-                    </div>
-                </article>
+                </button>
             `).join('');
         }
 
+        function renderRoom(room) {
+            const title = document.getElementById('room-title');
+            const list = document.getElementById('room-entities');
+            title.textContent = room ? room.label : 'Room';
+
+            if (!room || !room.entities || room.entities.length === 0) {
+                list.innerHTML = '<p class="empty-state">No entities configured for this room.</p>';
+                return;
+            }
+
+            list.innerHTML = room.entities.map((entity) => {
+                const isLight = entity.domain === 'light';
+                const brightness = entity.brightness_pct || 65;
+                const visiblePresets = (lightingData.presets || []).filter((preset) => (
+                    entity.supports_color || ['dim', 'bright'].includes(preset.key)
+                ));
+                const presets = isLight ? `
+                    <div class="preset-buttons">
+                        ${visiblePresets.map((preset) => `
+                            <button data-light-preset="${escapeHtml(entity.entity_id)}" data-preset="${escapeHtml(preset.key)}">
+                                ${escapeHtml(preset.label)}
+                            </button>
+                        `).join('')}
+                    </div>
+                ` : '';
+                const brightnessControl = isLight ? `
+                    <label class="brightness-control">
+                        <span>Brightness ${escapeHtml(String(brightness))}%</span>
+                        <input type="range" min="1" max="100" value="${escapeHtml(String(brightness))}" data-brightness="${escapeHtml(entity.entity_id)}">
+                    </label>
+                ` : '';
+                return `
+                    <article class="entity-row room-entity-row">
+                        <div>
+                            <strong>${escapeHtml(formatName(entity))}</strong>
+                            <span>${escapeHtml(entity.entity_id)} // ${escapeHtml(entity.state || 'unknown')}</span>
+                        </div>
+                        <div class="entity-actions">
+                            <button data-light="${escapeHtml(entity.entity_id)}" data-action="turn-on">On</button>
+                            <button data-light="${escapeHtml(entity.entity_id)}" data-action="turn-off">Off</button>
+                        </div>
+                        <div class="light-adjustments">
+                            ${brightnessControl}
+                            ${presets}
+                        </div>
+                    </article>
+                `;
+            }).join('');
+        }
+
+        function openRoom(roomKey) {
+            const room = roomByKey(roomKey);
+            currentRoomKey = roomKey;
+            renderRoom(room);
+            setScreen('room');
+            terminalPath.textContent = `LIGHTING / ${room ? room.label.toUpperCase() : roomKey.toUpperCase()}`;
+        }
+
         function renderLights() {
-            renderEntityControls(
-                'lights-list',
-                lightingData.lights,
-                'No interior lights detected. Configure Home Assistant or LIGHT_ENTITY_IDS.'
-            );
-            renderEntityControls(
-                'backyard-lights-list',
-                lightingData.backyard_lights,
-                'No backyard lights detected. Configure BACKYARD_LIGHT_ENTITY_IDS.'
-            );
+            renderRooms();
+            if (activeScreen === 'room' && currentRoomKey) {
+                renderRoom(roomByKey(currentRoomKey));
+            }
             renderScenes();
         }
 
@@ -290,14 +376,20 @@
             }
         }
 
-        async function postCommand(url, label, button) {
-            const originalText = button.textContent;
-            button.disabled = true;
-            button.textContent = 'Sending...';
+        async function postCommand(url, label, button, options = {}) {
+            const originalText = button ? button.textContent : '';
+            if (button) {
+                button.disabled = true;
+                button.textContent = 'Sending...';
+            }
             addLog(`Command sent: ${label}`);
 
             try {
-                const response = await fetch(url, { method: 'POST' });
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: options.body ? { 'Content-Type': 'application/json' } : undefined,
+                    body: options.body ? JSON.stringify(options.body) : undefined,
+                });
                 const data = await response.json();
                 if (response.ok) {
                     addLog(data.message || `${label} complete.`, 'success');
@@ -308,8 +400,10 @@
             } catch (error) {
                 addLog(`${label} failed: ${error.message}`, 'error');
             } finally {
-                button.disabled = false;
-                button.textContent = originalText;
+                if (button) {
+                    button.disabled = false;
+                    button.textContent = originalText;
+                }
             }
         }
 
@@ -320,11 +414,37 @@
                 return;
             }
 
+            const roomButton = event.target.closest('[data-room]');
+            if (roomButton) {
+                openRoom(roomButton.dataset.room);
+                return;
+            }
+
+            const roomActionButton = event.target.closest('[data-room-action]');
+            if (roomActionButton && currentRoomKey) {
+                const action = roomActionButton.dataset.roomAction;
+                postCommand(`${API_BASE}/api/rooms/${currentRoomKey}/${action}`, `${currentRoomKey} ${action}`, roomActionButton);
+                return;
+            }
+
             const lightButton = event.target.closest('[data-light]');
             if (lightButton) {
                 const entityId = encodeURIComponent(lightButton.dataset.light);
                 const action = lightButton.dataset.action;
                 postCommand(`${API_BASE}/api/lights/${entityId}/${action}`, `${lightButton.dataset.light} ${action}`, lightButton);
+                return;
+            }
+
+            const lightPresetButton = event.target.closest('[data-light-preset]');
+            if (lightPresetButton) {
+                const entityId = encodeURIComponent(lightPresetButton.dataset.lightPreset);
+                const preset = lightPresetButton.dataset.preset;
+                postCommand(
+                    `${API_BASE}/api/lights/${entityId}/preset`,
+                    `${lightPresetButton.dataset.lightPreset} preset ${preset}`,
+                    lightPresetButton,
+                    { body: { preset } }
+                );
                 return;
             }
 
@@ -350,15 +470,174 @@
             }
         });
 
-        document.addEventListener('keydown', (event) => {
-            if (event.key === 'Escape') {
-                setScreen('menu');
+        document.addEventListener('change', (event) => {
+            const slider = event.target.closest('[data-brightness]');
+            if (!slider) return;
+
+            const entityId = encodeURIComponent(slider.dataset.brightness);
+            const brightness = Number(slider.value);
+            const label = slider.previousElementSibling;
+            if (label) {
+                label.textContent = `Brightness ${brightness}%`;
+            }
+            postCommand(
+                `${API_BASE}/api/lights/${entityId}/brightness`,
+                `${slider.dataset.brightness} brightness ${brightness}%`,
+                null,
+                { body: { brightness_pct: brightness } }
+            );
+        });
+
+        document.addEventListener('input', (event) => {
+            const slider = event.target.closest('[data-brightness]');
+            if (!slider) return;
+            const label = slider.previousElementSibling;
+            if (label) {
+                label.textContent = `Brightness ${slider.value}%`;
             }
         });
+
+        document.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape') {
+                if (activeScreen === 'room') {
+                    setScreen('lighting');
+                } else {
+                    setScreen('menu');
+                }
+            }
+        });
+
+        function availableScreensaverModes() {
+            const modes = SCREENSAVER_CONFIG.modes || [];
+            return modes.filter((mode) => {
+                if (mode === 'image_splash') {
+                    return (SCREENSAVER_CONFIG.imagePaths || []).length > 0;
+                }
+                return ['drifting_diagnostics', 'matrix_rain', 'brain_drift'].includes(mode);
+            });
+        }
+
+        function setScreensaverMode(mode) {
+            const saver = document.getElementById('screensaver');
+            saver.dataset.mode = mode;
+            stopMatrixRain();
+            if (mode === 'matrix_rain') {
+                startMatrixRain();
+            }
+            if (mode === 'image_splash') {
+                const image = document.getElementById('screensaver-image');
+                const images = SCREENSAVER_CONFIG.imagePaths || [];
+                image.src = images[screensaverModeIndex % images.length] || '';
+            }
+        }
+
+        function nextScreensaverMode() {
+            const modes = availableScreensaverModes();
+            if (modes.length === 0) return;
+            screensaverModeIndex = (screensaverModeIndex + 1) % modes.length;
+            setScreensaverMode(modes[screensaverModeIndex]);
+        }
+
+        function showScreensaver() {
+            if (!SCREENSAVER_CONFIG.enabled || screensaverActive) return;
+            screensaverActive = true;
+            document.getElementById('screensaver').classList.add('active');
+            screensaverModeIndex = 0;
+            setScreensaverMode(availableScreensaverModes()[0] || 'drifting_diagnostics');
+            screensaverModeTimer = setInterval(nextScreensaverMode, 60000);
+        }
+
+        function hideScreensaver() {
+            if (!screensaverActive) return;
+            screensaverActive = false;
+            document.getElementById('screensaver').classList.remove('active');
+            clearInterval(screensaverModeTimer);
+            stopMatrixRain();
+        }
+
+        function resetScreensaverTimer() {
+            hideScreensaver();
+            clearTimeout(screensaverTimer);
+            if (!SCREENSAVER_CONFIG.enabled) return;
+            screensaverTimer = setTimeout(showScreensaver, Math.max(1, SCREENSAVER_CONFIG.timeoutSeconds || 300) * 1000);
+        }
+
+        function startMatrixRain() {
+            const canvas = document.getElementById('screensaver-matrix');
+            const context = canvas.getContext('2d');
+            const glyphs = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ#$%';
+            const resize = () => {
+                canvas.width = window.innerWidth;
+                canvas.height = window.innerHeight;
+            };
+            resize();
+            const columns = () => Math.floor(canvas.width / 22);
+            let drops = Array.from({ length: columns() }, () => Math.random() * -canvas.height);
+            matrixTimer = setInterval(() => {
+                context.fillStyle = 'rgba(2, 0, 0, 0.18)';
+                context.fillRect(0, 0, canvas.width, canvas.height);
+                context.font = '18px monospace';
+                context.fillStyle = 'rgba(0, 255, 136, 0.22)';
+                drops.forEach((drop, index) => {
+                    if (Math.random() > 0.62) {
+                        const char = glyphs[Math.floor(Math.random() * glyphs.length)];
+                        context.fillText(char, index * 22, drop);
+                    }
+                    drops[index] = drop > canvas.height + 40 ? Math.random() * -180 : drop + 12;
+                });
+            }, 80);
+            window.addEventListener('resize', resize, { once: true });
+        }
+
+        function stopMatrixRain() {
+            clearInterval(matrixTimer);
+            matrixTimer = null;
+            const canvas = document.getElementById('screensaver-matrix');
+            const context = canvas.getContext('2d');
+            context.clearRect(0, 0, canvas.width, canvas.height);
+        }
+
+        function updateScreensaverClock() {
+            document.getElementById('screensaver-clock').textContent = new Date().toLocaleTimeString();
+        }
+
+        function pollGamepads() {
+            const pads = navigator.getGamepads ? navigator.getGamepads() : [];
+            const signature = Array.from(pads || []).map((pad) => {
+                if (!pad) return '';
+                return pad.buttons.map((button) => button.pressed ? '1' : '0').join('');
+            }).join('|');
+            if (lastGamepadButtons && signature !== lastGamepadButtons) {
+                resetScreensaverTimer();
+            }
+            lastGamepadButtons = signature;
+            window.requestAnimationFrame(pollGamepads);
+        }
+
+        function interceptScreensaverWake(event) {
+            if (!screensaverActive) return;
+            event.preventDefault();
+            event.stopPropagation();
+            resetScreensaverTimer();
+        }
+
+        ['pointerdown', 'mousedown', 'touchstart', 'click'].forEach((eventName) => {
+            window.addEventListener(eventName, interceptScreensaverWake, true);
+        });
+
+        ['mousemove', 'mousedown', 'pointerdown', 'touchstart', 'wheel', 'keydown'].forEach((eventName) => {
+            window.addEventListener(eventName, resetScreensaverTimer, { passive: true });
+        });
+        window.showScreensaver = showScreensaver;
+        window.hideScreensaver = hideScreensaver;
 
         window.addEventListener('load', () => {
             refreshLighting();
             refreshMedia();
+            resetScreensaverTimer();
+            updateScreensaverClock();
+            setInterval(updateScreensaverClock, 1000);
+            pollGamepads();
             setInterval(() => {
                 refreshLighting();
                 refreshMedia();

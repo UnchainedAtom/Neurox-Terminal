@@ -53,6 +53,8 @@ Logging System (structured output)
 - **Terminal UI** - Fallout-style menu flow with one command family visible at a time
 - **Home Assistant Client** - Fetches states and calls Home Assistant service endpoints
 - **Scene Shortcuts** - Configurable party scene buttons for dramatic lighting changes
+- **Room Lighting Control** - Room-first pages with all-on/all-off, brightness sliders, and color presets
+- **CRT Screensaver** - Idle burn-in protection with drifting diagnostics, dim matrix rain, and brain drift modes
 - **Demo Mode** - Fully functional without Home Assistant (for testing)
 - **Environment Configuration** - 12-factor app pattern, no hardcoded secrets
 - **Structured Logging** - Timestamped logs for all requests and errors
@@ -139,6 +141,19 @@ HOME_ASSISTANT_TOKEN=your_long_lived_access_token
 LIGHT_ENTITY_ID=light.your_default_light
 LIGHT_ENTITY_IDS=light.art_display,light.dnd_room,light.entryway,light.kitchen_table,light.laundry_room_entryway,light.living_room_lamp,light.living_room_station_lamp,switch.tp_link_smart_plug_d528_lights1,switch.tp_link_smart_plug_d528_lights2
 BACKYARD_LIGHT_ENTITY_IDS=switch.tp_link_smart_plug_d528_lights1,switch.tp_link_smart_plug_d528_lights2
+ROOM_ORDER=dnd_room,living_room,kitchen,entryway,backyard,all_lights
+ROOM_DND_ROOM_LABEL=DND Room
+ROOM_DND_ROOM_ENTITIES=light.dnd_room,light.art_display
+ROOM_LIVING_ROOM_LABEL=Living Room
+ROOM_LIVING_ROOM_ENTITIES=light.living_room_lamp,light.living_room_station_lamp
+ROOM_KITCHEN_LABEL=Kitchen
+ROOM_KITCHEN_ENTITIES=light.kitchen_table
+ROOM_ENTRYWAY_LABEL=Entryway
+ROOM_ENTRYWAY_ENTITIES=light.entryway,light.laundry_room_entryway
+ROOM_BACKYARD_LABEL=Backyard Lights
+ROOM_BACKYARD_ENTITIES=switch.tp_link_smart_plug_d528_lights1,switch.tp_link_smart_plug_d528_lights2
+ROOM_ALL_LIGHTS_LABEL=All Lights
+ROOM_ALL_LIGHTS_ENTITIES=light.art_display,light.dnd_room,light.entryway,light.kitchen_table,light.laundry_room_entryway,light.living_room_lamp,light.living_room_station_lamp,switch.tp_link_smart_plug_d528_lights1,switch.tp_link_smart_plug_d528_lights2
 SCENE_HOME_2077_CITY=scene.home_2077_city
 SCENE_BLADERUNNER_ORANGE=scene.home_bladerunner_orange
 SCENE_ENERGIZE=scene.home_energize
@@ -156,6 +171,9 @@ SPOTIFY_MEDIA_PLAYER_ENTITY_ID=media_player.spotify
 PLEX_MEDIA_PLAYER_ENTITY_ID=media_player.living_room_tv
 SPOTIFY_DEFAULT_SOURCE=Living Room Speaker
 SPOTIFY_PARTY_PLAYLIST_URI=https://open.spotify.com/playlist/your_playlist_id
+SCREENSAVER_ENABLED=True
+SCREENSAVER_TIMEOUT_SECONDS=300
+SCREENSAVER_MODES=drifting_diagnostics,matrix_rain,brain_drift
 FLASK_PORT=8000
 ```
 
@@ -192,6 +210,19 @@ BACKYARD_LIGHT_ENTITY_IDS=switch.tp_link_smart_plug_d528_lights1,switch.tp_link_
 ```
 
 Leave `LIGHT_ENTITY_IDS` blank to show every Home Assistant light/switch entity. Use `BACKYARD_LIGHT_ENTITY_IDS` to pull outdoor switches into a separate terminal section.
+
+Lighting Control is room-first. Configure room pages explicitly in `.env`:
+
+```env
+ROOM_ORDER=dnd_room,living_room,kitchen,entryway,backyard,all_lights
+ROOM_DND_ROOM_LABEL=DND Room
+ROOM_DND_ROOM_ENTITIES=light.dnd_room,light.art_display
+ROOM_LIVING_ROOM_ENTITIES=light.living_room_lamp,light.living_room_station_lamp
+ROOM_BACKYARD_ENTITIES=switch.tp_link_smart_plug_d528_lights1,switch.tp_link_smart_plug_d528_lights2
+ROOM_ALL_LIGHTS_ENTITIES=light.art_display,light.dnd_room,light.entryway,light.kitchen_table,light.laundry_room_entryway,light.living_room_lamp,light.living_room_station_lamp,switch.tp_link_smart_plug_d528_lights1,switch.tp_link_smart_plug_d528_lights2
+```
+
+Room pages show `ALL ON`, `ALL OFF`, individual on/off buttons, brightness sliders for `light.*` entities, and large color preset buttons. `switch.*` entities only show on/off controls.
 
 Scene buttons are configured by Hue scene entity ID:
 
@@ -254,6 +285,26 @@ SPOTIFY_AMBIENT_PLAYLIST_URI=spotify:playlist:your_playlist_id
 
 If a Spotify preset does not play, first start Spotify once on the target device from the Spotify app. Home Assistant can only select sources that Spotify already knows about.
 
+### CRT Screensaver
+
+The frontend includes an idle screensaver to reduce CRT burn-in risk. It wakes immediately on keyboard, mouse, touch, wheel, pointer, or gamepad button input.
+
+```env
+SCREENSAVER_ENABLED=True
+SCREENSAVER_TIMEOUT_SECONDS=300
+SCREENSAVER_MODES=drifting_diagnostics,matrix_rain,brain_drift
+SCREENSAVER_IMAGE_PATHS=
+```
+
+Available modes:
+
+- `drifting_diagnostics` - dim moving status text
+- `matrix_rain` - sparse, low-brightness matrix canvas
+- `brain_drift` - low-opacity `midBrain.gif` drifting around the screen
+- `image_splash` - optional slow-moving image mode from `SCREENSAVER_IMAGE_PATHS`
+
+The screensaver does not power off the CRT. For best long idle protection, still turn off the display or blank the Pi output when you are done for the night.
+
 ---
 
 ## Deployment
@@ -312,6 +363,19 @@ curl http://localhost:8000/api/lighting
 
 # Turn a light on
 curl -X POST http://localhost:8000/api/lights/light.overhead_light/turn-on
+
+# Set light brightness
+curl -X POST http://localhost:8000/api/lights/light.art_display/brightness \
+  -H "Content-Type: application/json" \
+  -d '{"brightness_pct": 45}'
+
+# Apply a color preset
+curl -X POST http://localhost:8000/api/lights/light.art_display/preset \
+  -H "Content-Type: application/json" \
+  -d '{"preset": "green"}'
+
+# Turn a room off
+curl -X POST http://localhost:8000/api/rooms/living_room/turn-off
 
 # Activate a configured scene
 curl -X POST http://localhost:8000/api/scenes/red_alert
@@ -379,7 +443,7 @@ When you click a button:
 ## Known Limitations
 
 - **No database** - Status/history isn't persisted, restarts lose event log
-- **No advanced light controls yet** - Current scope is on/off plus scene activation
+- **Preset-based light controls** - Color control is currently large preset buttons, not a full color picker
 - **No authentication** - Anyone with network access can control devices
 - **Demo mode only mocks responses** - It does not control real devices
 - **Media playback only concept** - Media/music are future modules

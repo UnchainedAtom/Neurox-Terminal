@@ -32,6 +32,44 @@ def _optional_float_env(name):
     return float(value) if value else None
 
 
+def _room_env_key(room_key, suffix):
+    return f"ROOM_{room_key.upper()}_{suffix}"
+
+
+def _room_label(room_key):
+    return room_key.replace("_", " ").title()
+
+
+DEFAULT_ROOM_ORDER = [
+    "dnd_room",
+    "living_room",
+    "kitchen",
+    "entryway",
+    "backyard",
+    "all_lights",
+]
+
+DEFAULT_ROOM_ENTITIES = {
+    "dnd_room": ["light.dnd_room", "light.art_display"],
+    "living_room": ["light.living_room_lamp", "light.living_room_station_lamp"],
+    "kitchen": ["light.kitchen_table"],
+    "entryway": ["light.entryway", "light.laundry_room_entryway"],
+    "backyard": [
+        "switch.tp_link_smart_plug_d528_lights1",
+        "switch.tp_link_smart_plug_d528_lights2",
+    ],
+}
+
+DEFAULT_ROOM_LABELS = {
+    "dnd_room": "DND Room",
+    "living_room": "Living Room",
+    "kitchen": "Kitchen",
+    "entryway": "Entryway",
+    "backyard": "Backyard Lights",
+    "all_lights": "All Lights",
+}
+
+
 class Config:
     """Application configuration."""
 
@@ -47,6 +85,7 @@ class Config:
     LIGHT_ENTITY_ID = os.getenv('LIGHT_ENTITY_ID', 'light.overhead_light')
     LIGHT_ENTITY_IDS = _csv_env('LIGHT_ENTITY_IDS')
     BACKYARD_LIGHT_ENTITY_IDS = _csv_env('BACKYARD_LIGHT_ENTITY_IDS')
+    ROOM_ORDER = _csv_env('ROOM_ORDER') or DEFAULT_ROOM_ORDER
 
     SCENE_ENTITY_IDS = {
         "home_2077_city": os.getenv('SCENE_HOME_2077_CITY', os.getenv('SCENE_MAINFRAME_BREACH', 'scene.home_2077_city')),
@@ -91,6 +130,16 @@ class Config:
     SPOTIFY_PARTY_PLAYLIST_URI = os.getenv('SPOTIFY_PARTY_PLAYLIST_URI', '')
     SPOTIFY_AMBIENT_PLAYLIST_URI = os.getenv('SPOTIFY_AMBIENT_PLAYLIST_URI', '')
 
+    # CRT burn-in protection
+    SCREENSAVER_ENABLED = _bool_env('SCREENSAVER_ENABLED', True)
+    SCREENSAVER_TIMEOUT_SECONDS = int(os.getenv('SCREENSAVER_TIMEOUT_SECONDS', 300))
+    SCREENSAVER_MODES = _csv_env('SCREENSAVER_MODES') or [
+        "drifting_diagnostics",
+        "matrix_rain",
+        "brain_drift",
+    ]
+    SCREENSAVER_IMAGE_PATHS = _csv_env('SCREENSAVER_IMAGE_PATHS')
+
     # Flask settings
     FLASK_ENV = os.getenv('FLASK_ENV', 'development')
     FLASK_DEBUG = os.getenv('FLASK_DEBUG', 'False').lower() in ('true', '1', 't')
@@ -109,3 +158,41 @@ class Config:
                 "Set it in .env file or environment variables, "
                 "or enable DEMO_MODE=True for testing."
             )
+
+    @classmethod
+    def room_groups(cls):
+        """Return room groups configured from environment variables."""
+        rooms = {}
+        for room_key in cls.ROOM_ORDER:
+            if room_key == "all_lights":
+                default_entities = cls.LIGHT_ENTITY_IDS
+                default_label = "All Lights"
+            elif room_key == "backyard":
+                default_entities = (
+                    cls.BACKYARD_LIGHT_ENTITY_IDS
+                    or DEFAULT_ROOM_ENTITIES.get(room_key, [])
+                )
+                default_label = "Backyard Lights"
+            else:
+                default_entities = DEFAULT_ROOM_ENTITIES.get(room_key, [])
+                default_label = DEFAULT_ROOM_LABELS.get(room_key, _room_label(room_key))
+
+            label = os.getenv(_room_env_key(room_key, "LABEL"), default_label)
+            entities = _csv_env(_room_env_key(room_key, "ENTITIES")) or default_entities
+            if entities:
+                rooms[room_key] = {
+                    "key": room_key,
+                    "label": label,
+                    "entity_ids": entities,
+                }
+        return rooms
+
+    @classmethod
+    def screensaver_public_config(cls):
+        """Return frontend-safe screensaver configuration."""
+        return {
+            "enabled": cls.SCREENSAVER_ENABLED,
+            "timeoutSeconds": cls.SCREENSAVER_TIMEOUT_SECONDS,
+            "modes": cls.SCREENSAVER_MODES,
+            "imagePaths": cls.SCREENSAVER_IMAGE_PATHS,
+        }

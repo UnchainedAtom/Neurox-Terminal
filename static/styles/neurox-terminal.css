@@ -252,6 +252,7 @@ h3.subsection-title {
 
 .menu-list,
 .entity-list,
+.room-list,
 .protocol-grid,
 .preset-grid {
     display: grid;
@@ -269,6 +270,27 @@ h3.subsection-title {
     color: var(--text);
     font-size: clamp(20px, 3vw, 34px);
     text-shadow: var(--text-glow);
+}
+
+.room-command {
+    width: 100%;
+    padding: 16px 18px;
+}
+
+.room-command strong,
+.room-command span {
+    display: block;
+}
+
+.room-command strong {
+    font-size: clamp(20px, 3vw, 34px);
+}
+
+.room-command span {
+    margin-top: 5px;
+    color: var(--muted);
+    font-family: "GlassTTY", "Terminus", monospace;
+    font-size: 15px;
 }
 
 .screen-heading {
@@ -296,6 +318,24 @@ h3.subsection-title {
     background: linear-gradient(90deg, rgba(246, 5, 14, 0.12), rgba(246, 5, 14, 0.035));
     padding: 14px;
     box-shadow: inset 0 0 16px rgba(246, 5, 14, 0.08);
+}
+
+.room-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+    margin-bottom: 16px;
+}
+
+.room-actions button {
+    min-height: 66px;
+    padding: 14px 18px;
+    color: var(--amber);
+    text-align: center;
+}
+
+.room-entity-row {
+    grid-template-columns: minmax(0, 1fr) auto;
 }
 
 .entity-row strong {
@@ -328,6 +368,43 @@ h3.subsection-title {
 
 .entity-actions button {
     padding: 10px 14px;
+    text-align: center;
+}
+
+.light-adjustments {
+    display: grid;
+    grid-column: 1 / -1;
+    gap: 10px;
+}
+
+.brightness-control {
+    display: grid;
+    gap: 8px;
+    color: var(--cyan);
+    font-family: "GlassTTY", "Terminus", monospace;
+    font-size: 15px;
+    text-transform: uppercase;
+    text-shadow: var(--cyan-glow);
+}
+
+input[type="range"] {
+    width: 100%;
+    min-height: 34px;
+    accent-color: var(--cyan);
+    cursor: pointer;
+}
+
+.preset-buttons {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: 8px;
+}
+
+.preset-buttons button {
+    min-height: 48px;
+    padding: 8px 10px;
+    color: var(--cyan);
+    font-size: 16px;
     text-align: center;
 }
 
@@ -446,6 +523,72 @@ h3.subsection-title {
     padding: 18px;
 }
 
+.screensaver {
+    position: fixed;
+    inset: 0;
+    z-index: 18;
+    display: none;
+    overflow: hidden;
+    background: #020000;
+    color: rgba(159, 235, 234, 0.34);
+    pointer-events: auto;
+}
+
+.screensaver.active {
+    display: block;
+}
+
+.screensaver canvas,
+.screensaver-diagnostics,
+.screensaver-brain,
+.screensaver-image {
+    display: none;
+}
+
+.screensaver[data-mode="matrix_rain"] canvas,
+.screensaver[data-mode="drifting_diagnostics"] .screensaver-diagnostics,
+.screensaver[data-mode="brain_drift"] .screensaver-brain,
+.screensaver[data-mode="image_splash"] .screensaver-image {
+    display: block;
+}
+
+.screensaver-diagnostics {
+    position: absolute;
+    max-width: min(52vw, 520px);
+    opacity: 0.42;
+    animation: diagnosticsDrift 48s linear infinite alternate, screensaverFade 11s ease-in-out infinite;
+}
+
+.screensaver-diagnostics p {
+    margin: 0 0 8px;
+    font-family: "GlassTTY", "Terminus", monospace;
+    font-size: clamp(16px, 2.2vw, 28px);
+    text-transform: uppercase;
+    text-shadow: 0 0 10px rgba(159, 235, 234, 0.22);
+}
+
+.screensaver-brain,
+.screensaver-image {
+    position: absolute;
+    max-width: min(44vw, 500px);
+    max-height: 62vh;
+    opacity: 0.2;
+    filter: saturate(0.7) contrast(0.8);
+    animation: brainDrift 64s linear infinite alternate, screensaverFade 13s ease-in-out infinite;
+}
+
+.screensaver-image {
+    width: 70vw;
+    height: 70vh;
+    object-fit: contain;
+}
+
+#screensaver-matrix {
+    width: 100%;
+    height: 100%;
+    opacity: 0.72;
+}
+
 ::-webkit-scrollbar {
     width: 12px;
 }
@@ -476,6 +619,11 @@ h3.subsection-title {
     }
 
     .diagnostics {
+        grid-template-columns: 1fr;
+    }
+
+    .room-actions,
+    .preset-buttons {
         grid-template-columns: 1fr;
     }
 }
@@ -610,5 +758,45 @@ h3.subsection-title {
     }
     100% {
         text-shadow: 1.6px 0 1px rgba(0, 30, 255, 0.34), -1.6px 0 1px rgba(255, 0, 80, 0.22), var(--text-glow);
+    }
+}
+
+@keyframes diagnosticsDrift {
+    0% {
+        transform: translate(9vw, 14vh);
+    }
+    35% {
+        transform: translate(38vw, 25vh);
+    }
+    70% {
+        transform: translate(18vw, 66vh);
+    }
+    100% {
+        transform: translate(42vw, 54vh);
+    }
+}
+
+@keyframes brainDrift {
+    0% {
+        transform: translate(8vw, 11vh) scale(0.82);
+    }
+    40% {
+        transform: translate(39vw, 18vh) scale(0.92);
+    }
+    70% {
+        transform: translate(22vw, 61vh) scale(0.86);
+    }
+    100% {
+        transform: translate(43vw, 48vh) scale(0.96);
+    }
+}
+
+@keyframes screensaverFade {
+    0%,
+    100% {
+        opacity: 0.18;
+    }
+    50% {
+        opacity: 0.38;
     }
 }
