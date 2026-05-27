@@ -52,7 +52,7 @@ Logging System (structured output)
 - **REST API** - Clean endpoints for lighting, scenes, legacy media, and status
 - **Terminal UI** - Fallout-style menu flow with one command family visible at a time
 - **Home Assistant Client** - Fetches states and calls Home Assistant service endpoints
-- **Scene Shortcuts** - Configurable party scene buttons for dramatic lighting changes
+- **Scene Shortcuts** - Configurable protocol scene buttons for dramatic lighting changes
 - **Room Lighting Control** - Room-first pages with all-on/all-off, brightness sliders, and color presets
 - **CRT Screensaver** - Idle burn-in protection with drifting diagnostics, dim matrix rain, and brain drift modes
 - **Demo Mode** - Fully functional without Home Assistant (for testing)
@@ -390,7 +390,7 @@ Open browser: `http://localhost:8000/`
 
 You should see:
 - Terminal-style main menu
-- Lighting Control, Party Protocols, Media Relay, and System Status sections
+- Lighting Control, Protocols, Media Relay, and System Status sections
 - Large CRT-friendly commands
 - Activity log showing each action
 

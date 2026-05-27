@@ -31,7 +31,7 @@
                 <p class="screen-copy">Select subsystem.</p>
                 <nav class="menu-list" aria-label="Terminal sections">
                     <button class="menu-command" data-screen="lighting">01 // Lighting Control</button>
-                    <button class="menu-command" data-screen="party">02 // Party Protocols</button>
+                    <button class="menu-command" data-screen="party">02 // Protocols</button>
                     <button class="menu-command" data-screen="media">03 // Media Relay</button>
                     <button class="menu-command" data-screen="status">04 // System Status</button>
                 </nav>
@@ -70,7 +70,7 @@
             <section class="screen" id="screen-party">
                 <div class="screen-heading">
                     <div>
-                        <p class="eyebrow">PARTY PROTOCOLS</p>
+                        <p class="eyebrow">PROTOCOLS</p>
                         <h2>Scene Commands</h2>
                     </div>
                     <button class="back-command" data-screen="menu">Back</button>
@@ -108,6 +108,16 @@
                     <div><span>Dashboard Mode</span><strong id="diag-mode">Boot</strong></div>
                     <div><span>Last Sync</span><strong id="diag-sync">--:--:--</strong></div>
                 </div>
+                <div class="screensaver-panel">
+                    <div>
+                        <p class="eyebrow">BURN-IN GUARD</p>
+                        <h3 class="subsection-title">Screensaver Mode</h3>
+                    </div>
+                    <div id="screensaver-mode-list" class="screensaver-mode-list">
+                        <p class="empty-state">Screensaver disabled or no modes configured.</p>
+                    </div>
+                    <button class="preview-command" id="screensaver-preview">Preview Screensaver</button>
+                </div>
                 <div class="activity-log" id="activity-log">
                     <p><span>[INIT]</span> Terminal initialized. Awaiting command.</p>
                 </div>
@@ -142,6 +152,7 @@
         let screensaverModeTimer = null;
         let matrixTimer = null;
         let lastGamepadButtons = '';
+        let selectedScreensaverMode = localStorage.getItem('neuroxScreensaverMode') || '';
 
         function addLog(message, type = 'info') {
             const timestamp = new Date().toLocaleTimeString();
@@ -497,6 +508,23 @@
             }
         });
 
+        document.addEventListener('click', (event) => {
+            const modeButton = event.target.closest('[data-screensaver-mode]');
+            if (modeButton) {
+                selectedScreensaverMode = modeButton.dataset.screensaverMode;
+                localStorage.setItem('neuroxScreensaverMode', selectedScreensaverMode);
+                renderScreensaverControls();
+                addLog(`Screensaver mode armed: ${screensaverLabel(selectedScreensaverMode)}.`, 'success');
+                resetScreensaverTimer();
+                return;
+            }
+
+            if (event.target.closest('#screensaver-preview')) {
+                addLog(`Previewing screensaver: ${screensaverLabel(normalizedScreensaverMode())}.`);
+                showScreensaver();
+            }
+        });
+
         document.addEventListener('keydown', (event) => {
             if (event.key === 'Escape') {
                 if (activeScreen === 'room') {
@@ -515,6 +543,40 @@
                 }
                 return ['drifting_diagnostics', 'matrix_rain', 'brain_drift'].includes(mode);
             });
+        }
+
+        function screensaverLabel(mode) {
+            return {
+                drifting_diagnostics: 'Drifting Diagnostics',
+                matrix_rain: 'Matrix Rain',
+                brain_drift: 'Brain Drift',
+                image_splash: 'Image Splash',
+            }[mode] || mode.replaceAll('_', ' ');
+        }
+
+        function normalizedScreensaverMode() {
+            const modes = availableScreensaverModes();
+            if (modes.length === 0) return 'drifting_diagnostics';
+            if (modes.includes(selectedScreensaverMode)) return selectedScreensaverMode;
+            selectedScreensaverMode = modes[0];
+            localStorage.setItem('neuroxScreensaverMode', selectedScreensaverMode);
+            return selectedScreensaverMode;
+        }
+
+        function renderScreensaverControls() {
+            const list = document.getElementById('screensaver-mode-list');
+            const modes = availableScreensaverModes();
+            if (!SCREENSAVER_CONFIG.enabled || modes.length === 0) {
+                list.innerHTML = '<p class="empty-state">Screensaver disabled or no modes configured.</p>';
+                return;
+            }
+
+            const activeMode = normalizedScreensaverMode();
+            list.innerHTML = modes.map((mode) => `
+                <button class="screensaver-mode-command ${mode === activeMode ? 'active' : ''}" data-screensaver-mode="${escapeHtml(mode)}">
+                    ${escapeHtml(screensaverLabel(mode))}
+                </button>
+            `).join('');
         }
 
         function setScreensaverMode(mode) {
@@ -540,10 +602,12 @@
 
         function showScreensaver() {
             if (!SCREENSAVER_CONFIG.enabled || screensaverActive) return;
+            const modes = availableScreensaverModes();
+            const selectedMode = normalizedScreensaverMode();
             screensaverActive = true;
             document.getElementById('screensaver').classList.add('active');
-            screensaverModeIndex = 0;
-            setScreensaverMode(availableScreensaverModes()[0] || 'drifting_diagnostics');
+            screensaverModeIndex = Math.max(0, modes.indexOf(selectedMode));
+            setScreensaverMode(selectedMode);
             screensaverModeTimer = setInterval(nextScreensaverMode, 60000);
         }
 
@@ -634,6 +698,7 @@
         window.addEventListener('load', () => {
             refreshLighting();
             refreshMedia();
+            renderScreensaverControls();
             resetScreensaverTimer();
             updateScreensaverClock();
             setInterval(updateScreensaverClock, 1000);

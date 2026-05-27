@@ -440,7 +440,8 @@ input[type="range"] {
 }
 
 .module-placeholder,
-.diagnostics {
+.diagnostics,
+.screensaver-panel {
     border: 1px solid rgba(246, 5, 14, 0.35);
     background: rgba(0, 0, 0, 0.24);
     padding: 18px;
@@ -463,6 +464,40 @@ input[type="range"] {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 12px;
     margin-bottom: 18px;
+}
+
+.screensaver-panel {
+    display: grid;
+    gap: 12px;
+    margin-bottom: 18px;
+}
+
+.screensaver-panel .subsection-title {
+    margin-top: 0;
+}
+
+.screensaver-mode-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+    gap: 10px;
+}
+
+.screensaver-mode-command,
+.preview-command {
+    padding: 12px 14px;
+    color: var(--cyan);
+    text-align: center;
+}
+
+.screensaver-mode-command.active {
+    border-color: var(--green);
+    color: var(--green);
+    background: rgba(0, 255, 136, 0.1);
+    box-shadow: 0 0 14px rgba(0, 255, 136, 0.28);
+}
+
+.preview-command {
+    color: var(--amber);
 }
 
 .diagnostics div {
@@ -623,7 +658,8 @@ input[type="range"] {
     }
 
     .room-actions,
-    .preset-buttons {
+    .preset-buttons,
+    .screensaver-mode-list {
         grid-template-columns: 1fr;
     }
 }
