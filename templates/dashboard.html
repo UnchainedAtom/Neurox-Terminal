@@ -629,26 +629,38 @@
         function startMatrixRain() {
             const canvas = document.getElementById('screensaver-matrix');
             const context = canvas.getContext('2d');
-            const glyphs = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ#$%';
+            const glyphs = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+            const fontSize = 22;
             const resize = () => {
                 canvas.width = window.innerWidth;
                 canvas.height = window.innerHeight;
             };
             resize();
-            const columns = () => Math.floor(canvas.width / 22);
-            let drops = Array.from({ length: columns() }, () => Math.random() * -canvas.height);
+            const columns = () => Math.floor(canvas.width / fontSize);
+            let drops = Array.from({ length: columns() }, () => Math.random() * -canvas.height / fontSize);
+            let speeds = Array.from({ length: columns() }, () => 0.28 + Math.random() * 0.85);
             matrixTimer = setInterval(() => {
-                context.fillStyle = 'rgba(2, 0, 0, 0.18)';
+                context.fillStyle = 'rgba(2, 0, 0, 0.16)';
                 context.fillRect(0, 0, canvas.width, canvas.height);
-                context.font = '18px monospace';
-                context.fillStyle = 'rgba(0, 255, 136, 0.22)';
+                context.font = `${fontSize}px DraconicRain, Sevastopol, Courier New, monospace`;
                 drops.forEach((drop, index) => {
-                    if (Math.random() > 0.62) {
+                    if (Math.random() > 0.48) {
                         const char = glyphs[Math.floor(Math.random() * glyphs.length)];
-                        context.fillText(char, index * 22, drop);
+                        const x = index * fontSize;
+                        const y = drop * fontSize;
+                        const isHead = Math.random() > 0.94;
+                        context.fillStyle = isHead ? 'rgba(250, 252, 252, 0.68)' : 'rgba(0, 255, 136, 0.38)';
+                        context.shadowColor = isHead ? 'rgba(250, 252, 252, 0.62)' : 'rgba(0, 255, 136, 0.46)';
+                        context.shadowBlur = isHead ? 12 : 8;
+                        context.fillText(char, x, y);
                     }
-                    drops[index] = drop > canvas.height + 40 ? Math.random() * -180 : drop + 12;
+                    drops[index] += speeds[index];
+                    if (drop * fontSize > canvas.height + Math.random() * 420) {
+                        drops[index] = Math.random() * -40;
+                        speeds[index] = 0.28 + Math.random() * 0.85;
+                    }
                 });
+                context.shadowBlur = 0;
             }, 80);
             window.addEventListener('resize', resize, { once: true });
         }

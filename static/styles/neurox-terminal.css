@@ -28,6 +28,12 @@
     font-weight: 400;
 }
 
+@font-face {
+    font-family: "DraconicRain";
+    src: url("DND5EDraconicScript.ttf") format("truetype");
+    font-weight: 700;
+}
+
 :root {
     --bg: #0e0401;
     --panel: rgba(19, 8, 5, 0.92);
@@ -590,7 +596,7 @@ input[type="range"] {
 .screensaver-diagnostics {
     position: absolute;
     max-width: min(52vw, 520px);
-    opacity: 0.42;
+    opacity: 0.62;
     animation: diagnosticsDrift 48s linear infinite alternate, screensaverFade 11s ease-in-out infinite;
 }
 
@@ -599,7 +605,7 @@ input[type="range"] {
     font-family: "GlassTTY", "Terminus", monospace;
     font-size: clamp(16px, 2.2vw, 28px);
     text-transform: uppercase;
-    text-shadow: 0 0 10px rgba(159, 235, 234, 0.22);
+    text-shadow: 0 0 12px rgba(159, 235, 234, 0.48);
 }
 
 .screensaver-brain,
@@ -621,7 +627,7 @@ input[type="range"] {
 #screensaver-matrix {
     width: 100%;
     height: 100%;
-    opacity: 0.72;
+    opacity: 0.88;
 }
 
 ::-webkit-scrollbar {
@@ -830,9 +836,9 @@ input[type="range"] {
 @keyframes screensaverFade {
     0%,
     100% {
-        opacity: 0.18;
+        opacity: 0.32;
     }
     50% {
-        opacity: 0.38;
+        opacity: 0.62;
     }
 }
