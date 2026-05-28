@@ -235,7 +235,7 @@ def _media_presets():
     if Config.SPOTIFY_PARTY_PLAYLIST_URI:
         presets.append({
             "key": "spotify_party",
-            "label": "Spotify Party Playlist",
+            "label": "Spotify Protocol Playlist",
             "entity_id": Config.SPOTIFY_MEDIA_PLAYER_ENTITY_ID,
         })
     if Config.SPOTIFY_AMBIENT_PLAYLIST_URI:

@@ -77,6 +77,83 @@ body {
     animation: textShadow 5s infinite;
 }
 
+body.terminal-cursor-hidden,
+body.terminal-cursor-hidden * {
+    cursor: none !important;
+}
+
+body.screensaver-cursor-hidden,
+body.screensaver-cursor-hidden * {
+    cursor: none !important;
+}
+
+body.terminal-cursor-custom,
+body.terminal-cursor-custom * {
+    cursor: none !important;
+}
+
+.thematic-cursor {
+    position: fixed;
+    left: 0;
+    top: 0;
+    z-index: 50;
+    width: 28px;
+    height: 28px;
+    pointer-events: none;
+    opacity: 0;
+    transform: translate(-100px, -100px);
+    transition: opacity 90ms ease;
+}
+
+.thematic-cursor::before,
+.thematic-cursor::after,
+.thematic-cursor span::before,
+.thematic-cursor span::after {
+    content: "";
+    position: absolute;
+    background: var(--cyan);
+    box-shadow: 0 0 8px rgba(159, 235, 234, 0.82), 0 0 14px rgba(246, 5, 14, 0.26);
+}
+
+.thematic-cursor::before {
+    left: 0;
+    top: 13px;
+    width: 28px;
+    height: 2px;
+}
+
+.thematic-cursor::after {
+    left: 13px;
+    top: 0;
+    width: 2px;
+    height: 28px;
+}
+
+.thematic-cursor span::before {
+    left: 20px;
+    top: 20px;
+    width: 8px;
+    height: 2px;
+    background: var(--red);
+}
+
+.thematic-cursor span::after {
+    left: 20px;
+    top: 20px;
+    width: 2px;
+    height: 8px;
+    background: var(--red);
+}
+
+body.terminal-cursor-active .thematic-cursor {
+    opacity: 0.92;
+}
+
+body.terminal-cursor-hidden .thematic-cursor,
+body.screensaver-cursor-hidden .thematic-cursor {
+    opacity: 0;
+}
+
 button {
     min-height: 52px;
     border: 1px solid var(--border);
@@ -596,7 +673,7 @@ input[type="range"] {
 .screensaver-diagnostics {
     position: absolute;
     max-width: min(52vw, 520px);
-    opacity: 0.62;
+    opacity: 0.82;
     animation: diagnosticsDrift 48s linear infinite alternate, screensaverFade 11s ease-in-out infinite;
 }
 
@@ -605,7 +682,7 @@ input[type="range"] {
     font-family: "GlassTTY", "Terminus", monospace;
     font-size: clamp(16px, 2.2vw, 28px);
     text-transform: uppercase;
-    text-shadow: 0 0 12px rgba(159, 235, 234, 0.48);
+    text-shadow: 0 0 12px rgba(159, 235, 234, 0.72), 0 0 22px rgba(159, 235, 234, 0.34);
 }
 
 .screensaver-brain,
@@ -627,7 +704,7 @@ input[type="range"] {
 #screensaver-matrix {
     width: 100%;
     height: 100%;
-    opacity: 0.88;
+    opacity: 1;
 }
 
 ::-webkit-scrollbar {
@@ -836,9 +913,9 @@ input[type="range"] {
 @keyframes screensaverFade {
     0%,
     100% {
-        opacity: 0.32;
+        opacity: 0.52;
     }
     50% {
-        opacity: 0.62;
+        opacity: 0.84;
     }
 }

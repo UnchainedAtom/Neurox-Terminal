@@ -31,7 +31,7 @@
                 <p class="screen-copy">Select subsystem.</p>
                 <nav class="menu-list" aria-label="Terminal sections">
                     <button class="menu-command" data-screen="lighting">01 // Lighting Control</button>
-                    <button class="menu-command" data-screen="party">02 // Protocols</button>
+                    <button class="menu-command" data-screen="protocols">02 // Protocols</button>
                     <button class="menu-command" data-screen="media">03 // Media Relay</button>
                     <button class="menu-command" data-screen="status">04 // System Status</button>
                 </nav>
@@ -67,7 +67,7 @@
                 </div>
             </section>
 
-            <section class="screen" id="screen-party">
+            <section class="screen" id="screen-protocols">
                 <div class="screen-heading">
                     <div>
                         <p class="eyebrow">PROTOCOLS</p>
@@ -135,6 +135,9 @@
         <img id="screensaver-brain" class="screensaver-brain" src="{{ url_for('static', filename='images/midBrain.gif') }}" alt="">
         <img id="screensaver-image" class="screensaver-image" alt="">
     </section>
+    <div id="thematic-cursor" class="thematic-cursor" aria-hidden="true">
+        <span></span>
+    </div>
 
     <script>
         const API_BASE = window.location.origin;
@@ -153,6 +156,7 @@
         let matrixTimer = null;
         let lastGamepadButtons = '';
         let selectedScreensaverMode = localStorage.getItem('neuroxScreensaverMode') || '';
+        let cursorTimer = null;
 
         function addLog(message, type = 'info') {
             const timestamp = new Date().toLocaleTimeString();
@@ -605,6 +609,7 @@
             const modes = availableScreensaverModes();
             const selectedMode = normalizedScreensaverMode();
             screensaverActive = true;
+            document.body.classList.add('screensaver-cursor-hidden');
             document.getElementById('screensaver').classList.add('active');
             screensaverModeIndex = Math.max(0, modes.indexOf(selectedMode));
             setScreensaverMode(selectedMode);
@@ -614,6 +619,7 @@
         function hideScreensaver() {
             if (!screensaverActive) return;
             screensaverActive = false;
+            document.body.classList.remove('screensaver-cursor-hidden');
             document.getElementById('screensaver').classList.remove('active');
             clearInterval(screensaverModeTimer);
             stopMatrixRain();
@@ -649,9 +655,9 @@
                         const x = index * fontSize;
                         const y = drop * fontSize;
                         const isHead = Math.random() > 0.94;
-                        context.fillStyle = isHead ? 'rgba(250, 252, 252, 0.68)' : 'rgba(0, 255, 136, 0.38)';
-                        context.shadowColor = isHead ? 'rgba(250, 252, 252, 0.62)' : 'rgba(0, 255, 136, 0.46)';
-                        context.shadowBlur = isHead ? 12 : 8;
+                        context.fillStyle = isHead ? 'rgba(250, 252, 252, 0.88)' : 'rgba(0, 255, 136, 0.62)';
+                        context.shadowColor = isHead ? 'rgba(250, 252, 252, 0.82)' : 'rgba(0, 255, 136, 0.72)';
+                        context.shadowBlur = isHead ? 16 : 11;
                         context.fillText(char, x, y);
                     }
                     drops[index] += speeds[index];
@@ -690,6 +696,22 @@
             window.requestAnimationFrame(pollGamepads);
         }
 
+        function showCursorBriefly(pointerEvent) {
+            const cursor = document.getElementById('thematic-cursor');
+            if (pointerEvent && Number.isFinite(pointerEvent.clientX) && Number.isFinite(pointerEvent.clientY)) {
+                cursor.style.transform = `translate(${pointerEvent.clientX - 14}px, ${pointerEvent.clientY - 14}px)`;
+            }
+            document.body.classList.remove('terminal-cursor-hidden');
+            document.body.classList.add('terminal-cursor-active');
+            clearTimeout(cursorTimer);
+            cursorTimer = setTimeout(() => {
+                if (!screensaverActive) {
+                    document.body.classList.add('terminal-cursor-hidden');
+                    document.body.classList.remove('terminal-cursor-active');
+                }
+            }, 2600);
+        }
+
         function interceptScreensaverWake(event) {
             if (!screensaverActive) return;
             event.preventDefault();
@@ -704,14 +726,19 @@
         ['mousemove', 'mousedown', 'pointerdown', 'touchstart', 'wheel', 'keydown'].forEach((eventName) => {
             window.addEventListener(eventName, resetScreensaverTimer, { passive: true });
         });
+        ['mousemove', 'mousedown', 'pointerdown', 'touchstart', 'wheel'].forEach((eventName) => {
+            window.addEventListener(eventName, showCursorBriefly, { passive: true });
+        });
         window.showScreensaver = showScreensaver;
         window.hideScreensaver = hideScreensaver;
 
         window.addEventListener('load', () => {
+            document.body.classList.add('terminal-cursor-custom');
             refreshLighting();
             refreshMedia();
             renderScreensaverControls();
             resetScreensaverTimer();
+            showCursorBriefly();
             updateScreensaverClock();
             setInterval(updateScreensaverClock, 1000);
             pollGamepads();
